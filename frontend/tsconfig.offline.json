@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "ignoreDeprecations": "6.0", "noImplicitAny": false, "typeRoots": [], "types": [], "baseUrl": ".", "paths": { "react": ["typecheck-shims/react.d.ts"], "react-dom/client": ["typecheck-shims/react-dom.d.ts"], "react-icons/lu": ["typecheck-shims/icons.d.ts"] } },
+  "include": ["src", "typecheck-shims"]
+}

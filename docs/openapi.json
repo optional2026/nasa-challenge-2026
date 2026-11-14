@@ -1,0 +1,6127 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ASTRA API",
+    "version": "1.0.0",
+    "description": "ASTRA \u2014 Astronaut Self-assessment, Tracking and Response Assistant. Decision-support prototype for the NASA Space Apps Challenge 2026. Not an autonomous doctor. All demo data is SYNTHETIC; rules marked DEMONSTRATION_ONLY are not clinical thresholds."
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Log in and receive a session token",
+        "tags": [
+          "auth"
+        ],
+        "operationId": "login",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Current user",
+        "tags": [
+          "auth"
+        ],
+        "operationId": "me",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "summary": "List users (administrator)",
+        "tags": [
+          "auth"
+        ],
+        "operationId": "users",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/missions": {
+      "get": {
+        "summary": "Missions",
+        "tags": [
+          "mission"
+        ],
+        "operationId": "missions",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/missions/{mission_id}": {
+      "get": {
+        "summary": "Mission detail incl. phases",
+        "tags": [
+          "mission"
+        ],
+        "operationId": "mission_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/astronauts": {
+      "get": {
+        "summary": "Crew list (no health data)",
+        "tags": [
+          "crew"
+        ],
+        "operationId": "astronauts",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/astronauts/{astronaut_id}": {
+      "get": {
+        "summary": "Astronaut profile, schedule and medical history",
+        "tags": [
+          "crew"
+        ],
+        "operationId": "astronaut_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/astronauts/{astronaut_id}/glucose-monitoring": {
+      "post": {
+        "summary": "Enable/disable clinician-directed glucose monitoring",
+        "tags": [
+          "crew"
+        ],
+        "operationId": "glucose_toggle",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertActionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "summary": "Devices and connection status",
+        "tags": [
+          "devices"
+        ],
+        "operationId": "devices",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/devices/adapters": {
+      "get": {
+        "summary": "Device adapter catalogue with example native payloads",
+        "tags": [
+          "devices"
+        ],
+        "operationId": "adapters",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/status": {
+      "post": {
+        "summary": "Device heartbeat / status (device key)",
+        "tags": [
+          "devices"
+        ],
+        "operationId": "device_status",
+        "description": "",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceStatusIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "deviceKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/readings": {
+      "post": {
+        "summary": "Submit a device-native reading (converted by the device adapter)",
+        "tags": [
+          "devices"
+        ],
+        "operationId": "device_reading",
+        "description": "",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceReadingIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "deviceKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/telemetry": {
+      "post": {
+        "summary": "Telemetry ingestion (unified observation format)",
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "telemetry",
+        "description": "Validates each observation independently (metric, unit, value range, timestamp, identity, device),\nstores accepted observations with provenance, runs the assessment engine, creates alerts and publishes\nreal-time events. Idempotent by observation_id and optional `Idempotency-Key` header.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryBatchIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "deviceKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/measurements/manual": {
+      "post": {
+        "summary": "Manual measurement entry (one panel)",
+        "tags": [
+          "ingestion"
+        ],
+        "operationId": "manual",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualMeasurementIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/measurements/history": {
+      "get": {
+        "summary": "Measurement history with pagination, filters and aggregation",
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "history",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "metric_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "source_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "context_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "e.g. 'resting' for heart rate, test name for performance tests"
+            },
+            "description": "e.g. 'resting' for heart rate, test name for performance tests"
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "raw",
+                    "hour",
+                    "day",
+                    "week"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "raw"
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 5000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/measurements/latest": {
+      "get": {
+        "summary": "Latest observation per metric",
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "latest",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "metric_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/measurements/{observation_id}": {
+      "get": {
+        "summary": "Observation detail with provenance and linked assessments",
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "observation_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "observation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/indicators": {
+      "get": {
+        "summary": "Health indicator definitions",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "indicators",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/symptoms": {
+      "get": {
+        "summary": "Symptom vocabulary",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "symptoms",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/hazards": {
+      "get": {
+        "summary": "Five hazards with related risks and sources",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "hazards",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/risks": {
+      "get": {
+        "summary": "Risk definitions",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "risks",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/risks/{risk_id}": {
+      "get": {
+        "summary": "Risk detail",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "risk",
+        "description": "",
+        "parameters": [
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/countermeasures": {
+      "get": {
+        "summary": "Countermeasure references",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "countermeasures",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/sources": {
+      "get": {
+        "summary": "Evidence sources with verification status",
+        "tags": [
+          "knowledge"
+        ],
+        "operationId": "sources",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/sleep": {
+      "post": {
+        "summary": "Sleep assessment",
+        "tags": [
+          "records"
+        ],
+        "operationId": "sleep_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SleepIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "get": {
+        "summary": "Sleep records",
+        "tags": [
+          "records"
+        ],
+        "operationId": "sleep_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/mood": {
+      "post": {
+        "summary": "Private daily check-in (mood, stress, fatigue \u2026)",
+        "tags": [
+          "records"
+        ],
+        "operationId": "mood_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoodIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "get": {
+        "summary": "Private check-ins (astronaut and flight surgeon only)",
+        "tags": [
+          "records"
+        ],
+        "operationId": "mood_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/exercise": {
+      "post": {
+        "summary": "Exercise record",
+        "tags": [
+          "records"
+        ],
+        "operationId": "exercise_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "get": {
+        "summary": "Exercise records and adherence",
+        "tags": [
+          "records"
+        ],
+        "operationId": "exercise_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/nutrition": {
+      "post": {
+        "summary": "Nutrition / hydration record",
+        "tags": [
+          "records"
+        ],
+        "operationId": "nutrition_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "get": {
+        "summary": "Nutrition records with daily water totals",
+        "tags": [
+          "records"
+        ],
+        "operationId": "nutrition_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medications": {
+      "post": {
+        "summary": "Record medication given under an approved instruction",
+        "tags": [
+          "records"
+        ],
+        "operationId": "medication_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicationIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-history": {
+      "post": {
+        "summary": "Add medical history entry",
+        "tags": [
+          "records"
+        ],
+        "operationId": "history_create",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalHistoryIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/measurements": {
+      "get": {
+        "summary": "Alias of /measurements/history",
+        "tags": [
+          "measurements"
+        ],
+        "operationId": "measurements_alias",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "metric_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "source_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "context_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "e.g. 'resting' for heart rate, test name for performance tests"
+            },
+            "description": "e.g. 'resting' for heart rate, test name for performance tests"
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "raw",
+                    "hour",
+                    "day",
+                    "week"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "raw"
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 5000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/baselines": {
+      "get": {
+        "summary": "Individual baselines (all versions)",
+        "tags": [
+          "baselines"
+        ],
+        "operationId": "baseline_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "post": {
+        "summary": "Propose a baseline from a period of valid observations (draft)",
+        "tags": [
+          "baselines"
+        ],
+        "operationId": "baseline_propose",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineProposeIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/baselines/{baseline_id}/approve": {
+      "post": {
+        "summary": "Approve a draft baseline (optionally with reference range)",
+        "tags": [
+          "baselines"
+        ],
+        "operationId": "baseline_approve",
+        "description": "",
+        "parameters": [
+          {
+            "name": "baseline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineApproveIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/baselines/{baseline_id}/retire": {
+      "post": {
+        "summary": "Retire a baseline version",
+        "tags": [
+          "baselines"
+        ],
+        "operationId": "baseline_retire",
+        "description": "",
+        "parameters": [
+          {
+            "name": "baseline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/rules": {
+      "get": {
+        "summary": "Centralized rule configuration (all versions)",
+        "tags": [
+          "rules"
+        ],
+        "operationId": "rules",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/rules/{rule_id}/versions": {
+      "post": {
+        "summary": "Create a new rule version (flight surgeon)",
+        "tags": [
+          "rules"
+        ],
+        "operationId": "rule_update",
+        "description": "",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleUpdateIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/assessments": {
+      "get": {
+        "summary": "Assessment history",
+        "tags": [
+          "assessments"
+        ],
+        "operationId": "assessment_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      },
+      "post": {
+        "summary": "Run a full assessment now (all rules + missing-data checks)",
+        "tags": [
+          "assessments"
+        ],
+        "operationId": "assessment_run",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssessmentRunIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/assessments/{assessment_id}": {
+      "get": {
+        "summary": "Assessment detail (findings, evidence, limitations)",
+        "tags": [
+          "assessments"
+        ],
+        "operationId": "assessment_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/trends": {
+      "get": {
+        "summary": "Trend analysis for one indicator",
+        "tags": [
+          "assessments"
+        ],
+        "operationId": "trend",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/alerts": {
+      "get": {
+        "summary": "Alerts (filtered by role and privacy)",
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alert_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}": {
+      "get": {
+        "summary": "Alert detail",
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alert_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}/acknowledge": {
+      "post": {
+        "summary": "Acknowledge an alert (does not resolve the medical event)",
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alert_ack",
+        "description": "",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertActionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}/resolve": {
+      "post": {
+        "summary": "Resolve an alert",
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "alert_resolve",
+        "description": "",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertActionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events": {
+      "get": {
+        "summary": "Medical events",
+        "tags": [
+          "medical-events"
+        ],
+        "operationId": "event_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events/{event_id}": {
+      "get": {
+        "summary": "Medical event detail (timeline, protocol, checklist)",
+        "tags": [
+          "medical-events"
+        ],
+        "operationId": "event_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events/{event_id}/transition": {
+      "post": {
+        "summary": "Change medical event state (validated state machine)",
+        "tags": [
+          "medical-events"
+        ],
+        "operationId": "event_transition",
+        "description": "",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventTransitionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events/{event_id}/actions": {
+      "post": {
+        "summary": "Record an action (checklist item, note, step)",
+        "tags": [
+          "medical-events"
+        ],
+        "operationId": "event_action",
+        "description": "",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventActionIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events/{event_id}/escalate": {
+      "post": {
+        "summary": "Escalate: notify medical personnel and queue report to ground",
+        "tags": [
+          "medical-events"
+        ],
+        "operationId": "event_escalate",
+        "description": "",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalateIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-events/{event_id}/reports": {
+      "post": {
+        "summary": "Generate a structured medical report",
+        "tags": [
+          "medical-reports"
+        ],
+        "operationId": "event_report",
+        "description": "",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreateIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-reports": {
+      "get": {
+        "summary": "Medical reports",
+        "tags": [
+          "medical-reports"
+        ],
+        "operationId": "report_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-reports/{report_id}": {
+      "get": {
+        "summary": "Medical report detail",
+        "tags": [
+          "medical-reports"
+        ],
+        "operationId": "report_detail",
+        "description": "",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/medical-protocols": {
+      "get": {
+        "summary": "Preloaded procedures (approval status shown)",
+        "tags": [
+          "medical-protocols"
+        ],
+        "operationId": "protocols",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/medical-protocols/{protocol_id}": {
+      "get": {
+        "summary": "Procedure detail",
+        "tags": [
+          "medical-protocols"
+        ],
+        "operationId": "protocol",
+        "description": "",
+        "parameters": [
+          {
+            "name": "protocol_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/overview": {
+      "get": {
+        "summary": "Mission overview for one astronaut",
+        "tags": [
+          "views"
+        ],
+        "operationId": "overview",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/body-systems/{system}": {
+      "get": {
+        "summary": "Body-system view: risks, hazards, measurements, symptoms, assessments",
+        "tags": [
+          "views"
+        ],
+        "operationId": "body_system",
+        "description": "",
+        "parameters": [
+          {
+            "name": "system",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/environment": {
+      "get": {
+        "summary": "Environment status: latest readings, open events, mission phase",
+        "tags": [
+          "environment"
+        ],
+        "operationId": "env_status",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/environment/history": {
+      "get": {
+        "summary": "Environmental history (optionally bucketed)",
+        "tags": [
+          "environment"
+        ],
+        "operationId": "env_history",
+        "description": "",
+        "parameters": [
+          {
+            "name": "metric_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 240,
+              "maximum": 8760,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/environment/events": {
+      "get": {
+        "summary": "Environmental events",
+        "tags": [
+          "environment"
+        ],
+        "operationId": "env_events",
+        "description": "",
+        "parameters": [
+          {
+            "name": "metric_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 240,
+              "maximum": 8760,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/environment/radiation": {
+      "get": {
+        "summary": "Radiation exposure history and dosimeters",
+        "tags": [
+          "environment"
+        ],
+        "operationId": "env_radiation",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/environment/overlay": {
+      "get": {
+        "summary": "Medical series alongside an environmental series (context only)",
+        "tags": [
+          "environment"
+        ],
+        "operationId": "env_overlay",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/routine": {
+      "get": {
+        "summary": "Today's required assessments and completion history",
+        "tags": [
+          "views"
+        ],
+        "operationId": "routine",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 3650,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/simulator": {
+      "get": {
+        "summary": "Simulator status (SYNTHETIC data source)",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_status",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/start": {
+      "post": {
+        "summary": "Start a scenario",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_start",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulatorStartIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/pause": {
+      "post": {
+        "summary": "Pause",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_pause",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/resume": {
+      "post": {
+        "summary": "Resume",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_resume",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/stop": {
+      "post": {
+        "summary": "Stop",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_stop",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/speed": {
+      "post": {
+        "summary": "Change speed",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_speed",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulatorSpeedIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/simulator/reset": {
+      "post": {
+        "summary": "Stop and delete all simulator-generated records",
+        "tags": [
+          "simulator"
+        ],
+        "operationId": "sim_reset",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/sync": {
+      "get": {
+        "summary": "Synchronization queue and Earth-link status",
+        "tags": [
+          "sync"
+        ],
+        "operationId": "sync_status",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/sync/link": {
+      "post": {
+        "summary": "Set Earth link status / delay (mission operations)",
+        "tags": [
+          "sync"
+        ],
+        "operationId": "sync_link",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkIn"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "admin",
+          "medical_officer",
+          "flight_surgeon",
+          "astronaut"
+        ]
+      }
+    },
+    "/api/v1/sync/run": {
+      "post": {
+        "summary": "Run one synchronization pass now",
+        "tags": [
+          "sync"
+        ],
+        "operationId": "sync_run",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/sync/{queue_id}/retry": {
+      "post": {
+        "summary": "Retry a failed or conflicted item",
+        "tags": [
+          "sync"
+        ],
+        "operationId": "sync_retry",
+        "description": "",
+        "parameters": [
+          {
+            "name": "queue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "astronaut",
+          "medical_officer",
+          "flight_surgeon",
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "summary": "Audit log (administrator, flight surgeon)",
+        "tags": [
+          "audit"
+        ],
+        "operationId": "audit_list",
+        "description": "",
+        "parameters": [
+          {
+            "name": "astronaut_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "description": ""
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "description": ""
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-roles": [
+          "admin",
+          "flight_surgeon"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "Service health",
+        "tags": [
+          "system"
+        ],
+        "operationId": "health",
+        "description": "",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden for role"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginOut": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user": {
+            "additionalProperties": true,
+            "title": "User",
+            "type": "object"
+          }
+        },
+        "required": [
+          "token",
+          "user"
+        ],
+        "title": "LoginOut",
+        "type": "object"
+      },
+      "LoginIn": {
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginIn",
+        "type": "object"
+      },
+      "AlertActionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          }
+        },
+        "title": "AlertActionIn",
+        "type": "object"
+      },
+      "DeviceStatusIn": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "connected",
+              "disconnected",
+              "error",
+              "low_battery"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "battery_pct": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Battery Pct"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DeviceStatusIn",
+        "type": "object"
+      },
+      "AcceptedItem": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "observation_id": {
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "metric_code": {
+            "title": "Metric Code",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "duplicate"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "observation_id",
+          "metric_code",
+          "status"
+        ],
+        "title": "AcceptedItem",
+        "type": "object"
+      },
+      "RejectedItem": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "index",
+          "observation_id",
+          "errors"
+        ],
+        "title": "RejectedItem",
+        "type": "object"
+      },
+      "TelemetryResult": {
+        "properties": {
+          "processing_status": {
+            "enum": [
+              "complete",
+              "partial",
+              "rejected"
+            ],
+            "title": "Processing Status",
+            "type": "string"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "accepted": {
+            "items": {
+              "$ref": "#/components/schemas/AcceptedItem"
+            },
+            "title": "Accepted",
+            "type": "array"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedItem"
+            },
+            "title": "Rejected",
+            "type": "array"
+          },
+          "validation_errors": {
+            "title": "Validation Errors",
+            "type": "integer"
+          },
+          "assessments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assessments",
+            "type": "array"
+          },
+          "alerts_created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alerts Created",
+            "type": "array"
+          },
+          "alerts_updated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alerts Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "processing_status",
+          "batch_id",
+          "accepted",
+          "rejected",
+          "validation_errors",
+          "assessments",
+          "alerts_created",
+          "alerts_updated"
+        ],
+        "title": "TelemetryResult",
+        "type": "object"
+      },
+      "DeviceReadingIn": {
+        "additionalProperties": false,
+        "description": "Raw device-native payload converted by the device's adapter.",
+        "properties": {
+          "reading": {
+            "additionalProperties": true,
+            "title": "Reading",
+            "type": "object"
+          },
+          "measured_at": {
+            "title": "Measured At",
+            "type": "string"
+          },
+          "reading_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reading Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Required for shared devices (e.g. med-bay BP cuff) that are not assigned to one astronaut",
+            "title": "Astronaut Id"
+          }
+        },
+        "required": [
+          "reading",
+          "measured_at"
+        ],
+        "title": "DeviceReadingIn",
+        "type": "object"
+      },
+      "TelemetryBatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Batch Id"
+          },
+          "observations": {
+            "description": "Each item must follow the ObservationIn schema; items are validated individually",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observations"
+        ],
+        "title": "TelemetryBatchIn",
+        "type": "object"
+      },
+      "ManualItem": {
+        "additionalProperties": false,
+        "properties": {
+          "metric_code": {
+            "title": "Metric Code",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric_code",
+          "value",
+          "unit"
+        ],
+        "title": "ManualItem",
+        "type": "object"
+      },
+      "SymptomIn": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Symptom code from the ASTRA symptom vocabulary (GET /api/v1/symptoms)",
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Severity"
+          },
+          "onset_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Onset At"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "SymptomIn",
+        "type": "object"
+      },
+      "ManualMeasurementIn": {
+        "additionalProperties": false,
+        "description": "Manual astronaut input. Several items measured together (e.g. systolic + diastolic) form one panel.",
+        "properties": {
+          "client_submission_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Client-generated ID so retried submissions are not duplicated",
+            "title": "Client Submission Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          },
+          "measured_at": {
+            "title": "Measured At",
+            "type": "string"
+          },
+          "source_type": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "medical_device",
+              "clinician"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Device Id"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Measurement method, e.g. 'oral', 'cuff_upper_arm'",
+            "title": "Method"
+          },
+          "quality": {
+            "default": "unverified",
+            "enum": [
+              "valid",
+              "questionable",
+              "unverified"
+            ],
+            "title": "Quality",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManualItem"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "symptoms": {
+            "items": {
+              "$ref": "#/components/schemas/SymptomIn"
+            },
+            "title": "Symptoms",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "measured_at",
+          "items"
+        ],
+        "title": "ManualMeasurementIn",
+        "type": "object"
+      },
+      "SleepIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_submission_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Client Submission Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          },
+          "sleep_start": {
+            "title": "Sleep Start",
+            "type": "string"
+          },
+          "sleep_end": {
+            "title": "Sleep End",
+            "type": "string"
+          },
+          "corrected_duration_min": {
+            "anyOf": [
+              {
+                "maximum": 1440,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Correction for interrupted sleep; otherwise computed from start/end",
+            "title": "Corrected Duration Min"
+          },
+          "interruption_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Interruption Note"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Quality"
+          },
+          "awakenings": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Awakenings"
+          },
+          "restfulness": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Restfulness"
+          },
+          "fatigue_after_waking": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fatigue After Waking"
+          },
+          "scheduled_opportunity_min": {
+            "anyOf": [
+              {
+                "maximum": 1440,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scheduled Opportunity Min"
+          },
+          "source_type": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "wearable",
+              "simulator"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "synthetic": {
+            "default": false,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sleep_start",
+          "sleep_end"
+        ],
+        "title": "SleepIn",
+        "type": "object"
+      },
+      "MoodIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_submission_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Client Submission Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          },
+          "assessed_at": {
+            "title": "Assessed At",
+            "type": "string"
+          },
+          "mood": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mood"
+          },
+          "stress": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stress"
+          },
+          "fatigue": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fatigue"
+          },
+          "sleep_rating": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How well did you sleep?",
+            "title": "Sleep Rating"
+          },
+          "workload": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How mentally demanding was today's workload?",
+            "title": "Workload"
+          },
+          "connectedness": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Do you feel socially connected to the crew?",
+            "title": "Connectedness"
+          },
+          "note_for_medical": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Anything you want medical support to know?",
+            "title": "Note For Medical"
+          },
+          "private_note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Private Note"
+          },
+          "cognitive_pvt_rt_ms": {
+            "anyOf": [
+              {
+                "maximum": 5000,
+                "minimum": 100,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cognitive Pvt Rt Ms"
+          },
+          "synthetic": {
+            "default": false,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "assessed_at"
+        ],
+        "title": "MoodIn",
+        "type": "object"
+      },
+      "ExerciseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_submission_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Client Submission Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          },
+          "exercise_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Exercise Type",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "aerobic",
+              "resistive",
+              "flexibility",
+              "balance",
+              "performance_test",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "start_at": {
+            "title": "Start At",
+            "type": "string"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "maximum": 300,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Min"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "moderate",
+                  "high",
+                  "max"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Intensity"
+          },
+          "completion_status": {
+            "enum": [
+              "completed",
+              "partial",
+              "skipped",
+              "planned"
+            ],
+            "title": "Completion Status",
+            "type": "string"
+          },
+          "performance_notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Performance Notes"
+          },
+          "performance_test": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "{'test': 'grip_strength', 'value': 42, 'unit': 'kg'}",
+            "title": "Performance Test"
+          },
+          "pain_score": {
+            "anyOf": [
+              {
+                "maximum": 10,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pain Score"
+          },
+          "pain_location": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pain Location"
+          },
+          "source_type": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "medical_device",
+              "simulator"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Device Id"
+          },
+          "synthetic": {
+            "default": false,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exercise_type",
+          "category",
+          "start_at",
+          "completion_status"
+        ],
+        "title": "ExerciseIn",
+        "type": "object"
+      },
+      "NutritionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_submission_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:\\-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Client Submission Id"
+          },
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          },
+          "recorded_at": {
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "record_type": {
+            "enum": [
+              "water",
+              "meal",
+              "snack"
+            ],
+            "title": "Record Type",
+            "type": "string"
+          },
+          "water_ml": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Water Ml"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "energy_kcal": {
+            "anyOf": [
+              {
+                "maximum": 5000,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Energy Kcal"
+          },
+          "appetite": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Appetite"
+          },
+          "digestion_symptoms": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Digestion Symptoms"
+          },
+          "source_type": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "simulator"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "synthetic": {
+            "default": false,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "recorded_at",
+          "record_type"
+        ],
+        "title": "NutritionIn",
+        "type": "object"
+      },
+      "MedicationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "astronaut_id": {
+            "title": "Astronaut Id",
+            "type": "string"
+          },
+          "medication": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Medication",
+            "type": "string"
+          },
+          "dose_text": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Dose Text"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Route"
+          },
+          "administered_at": {
+            "title": "Administered At",
+            "type": "string"
+          },
+          "approved_instruction_ref": {
+            "description": "Reference to the approved medical instruction authorizing this medication",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Approved Instruction Ref",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "astronaut_id",
+          "medication",
+          "administered_at",
+          "approved_instruction_ref"
+        ],
+        "title": "MedicationIn",
+        "type": "object"
+      },
+      "MedicalHistoryIn": {
+        "additionalProperties": false,
+        "properties": {
+          "astronaut_id": {
+            "title": "Astronaut Id",
+            "type": "string"
+          },
+          "entry_type": {
+            "enum": [
+              "allergy",
+              "condition",
+              "examination",
+              "prior_event",
+              "clinician_observation",
+              "procedure"
+            ],
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Details"
+          },
+          "is_private": {
+            "default": true,
+            "title": "Is Private",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "astronaut_id",
+          "entry_type",
+          "title"
+        ],
+        "title": "MedicalHistoryIn",
+        "type": "object"
+      },
+      "BaselineProposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "astronaut_id": {
+            "title": "Astronaut Id",
+            "type": "string"
+          },
+          "metric_code": {
+            "title": "Metric Code",
+            "type": "string"
+          },
+          "context_key": {
+            "default": "",
+            "title": "Context Key",
+            "type": "string"
+          },
+          "period_start": {
+            "title": "Period Start",
+            "type": "string"
+          },
+          "period_end": {
+            "title": "Period End",
+            "type": "string"
+          },
+          "source": {
+            "default": "in_flight_window",
+            "enum": [
+              "pre_mission",
+              "in_flight_window"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "astronaut_id",
+          "metric_code",
+          "period_start",
+          "period_end"
+        ],
+        "title": "BaselineProposeIn",
+        "type": "object"
+      },
+      "BaselineApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "ref_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref Low"
+          },
+          "ref_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref High"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          }
+        },
+        "title": "BaselineApproveIn",
+        "type": "object"
+      },
+      "RuleUpdateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Active"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Params"
+          },
+          "approval_status": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Approval Status"
+          },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Effective Date"
+          }
+        },
+        "title": "RuleUpdateIn",
+        "type": "object"
+      },
+      "AssessmentRunIn": {
+        "additionalProperties": false,
+        "properties": {
+          "astronaut_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Astronaut Id"
+          }
+        },
+        "title": "AssessmentRunIn",
+        "type": "object"
+      },
+      "EventTransitionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "to_state": {
+            "enum": [
+              "DETECTED",
+              "VERIFYING",
+              "ACTIVE",
+              "ESCALATED",
+              "MONITORING",
+              "RESOLVED"
+            ],
+            "title": "To State",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "to_state"
+        ],
+        "title": "EventTransitionIn",
+        "type": "object"
+      },
+      "EventActionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "enum": [
+              "checklist_item",
+              "protocol_step",
+              "note",
+              "observation_link"
+            ],
+            "title": "Action Type",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          }
+        },
+        "required": [
+          "action_type",
+          "description"
+        ],
+        "title": "EventActionIn",
+        "type": "object"
+      },
+      "EscalateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "outstanding_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outstanding Questions",
+            "type": "array"
+          }
+        },
+        "title": "EscalateIn",
+        "type": "object"
+      },
+      "ReportCreateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "outstanding_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Outstanding Questions",
+            "type": "array"
+          },
+          "queue_for_transmission": {
+            "default": true,
+            "title": "Queue For Transmission",
+            "type": "boolean"
+          }
+        },
+        "title": "ReportCreateIn",
+        "type": "object"
+      },
+      "SimulatorStartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "scenario": {
+            "enum": [
+              "nominal",
+              "cardiovascular",
+              "sleep_fatigue",
+              "illness",
+              "radiation_event",
+              "musculoskeletal",
+              "behavioral",
+              "emergency"
+            ],
+            "title": "Scenario",
+            "type": "string"
+          },
+          "speed": {
+            "default": 6.0,
+            "description": "Simulated hours per real second",
+            "maximum": 96,
+            "minimum": 0.25,
+            "title": "Speed",
+            "type": "number"
+          },
+          "days": {
+            "default": 10,
+            "maximum": 30,
+            "minimum": 2,
+            "title": "Days",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 42,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scenario"
+        ],
+        "title": "SimulatorStartIn",
+        "type": "object"
+      },
+      "SimulatorSpeedIn": {
+        "additionalProperties": false,
+        "properties": {
+          "speed": {
+            "maximum": 96,
+            "minimum": 0.25,
+            "title": "Speed",
+            "type": "number"
+          }
+        },
+        "required": [
+          "speed"
+        ],
+        "title": "SimulatorSpeedIn",
+        "type": "object"
+      },
+      "LinkIn": {
+        "additionalProperties": false,
+        "properties": {
+          "earth_link_status": {
+            "enum": [
+              "online",
+              "degraded",
+              "offline"
+            ],
+            "title": "Earth Link Status",
+            "type": "string"
+          },
+          "comm_delay_seconds": {
+            "anyOf": [
+              {
+                "maximum": 3600,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comm Delay Seconds"
+          }
+        },
+        "required": [
+          "earth_link_status"
+        ],
+        "title": "LinkIn",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "deviceKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Device-Key"
+      }
+    }
+  }
+}

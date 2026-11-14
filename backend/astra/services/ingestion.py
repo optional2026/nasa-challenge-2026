@@ -158,7 +158,7 @@ def ingest(conn, principal: Principal, raw_items: list[dict], *, batch_id: str |
                     if a["mission_id"] != obs.mission_id:
                         raise ItemError([f"astronaut '{obs.astronaut_id}' is not assigned to mission '{obs.mission_id}'"])
                 device = None
-                device_id = obs.device_id or (principal.device_id if principal.kind == "device" else None)
+                device_id = obs.device_id or (principal.device_id if principal.kind == "device" and obs.metric_code != "symptom" else None)
                 if device_id:
                     device = db.one(conn, "SELECT * FROM devices WHERE id=?", (device_id,))
                     if not device:

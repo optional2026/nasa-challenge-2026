@@ -247,6 +247,7 @@ class SimulatorRunner:
                 if self.idx >= len(self.emissions) and clock >= self.sim_end:
                     with self.lock:
                         self.state = "completed"
+                    self._devices_disconnected()
                     self._publish()
                     return
                 self._publish(throttle=True)

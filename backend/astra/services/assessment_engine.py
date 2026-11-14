@@ -145,7 +145,7 @@ def ev_rapid_change(conn, rule, ast, metrics, obs, anchor):
         gap = (db.parse_iso(c["measured_at"]) - db.parse_iso(a["measured_at"])).total_seconds() / 60
         delta = c["value_num"] - a["value_num"]
         if gap <= p["max_gap_minutes"] and abs(delta) / trends.effective_sd(b) > p["k_sd"]:
-            out.append(_finding(rule, metric=m, astronaut_id=ast, dedup_suffix=f"|{c['id']}",
+            out.append(_finding(rule, metric=m, astronaut_id=ast,
                                 title=f"{_ind_name(m)}: rapid change — verify measurement",
                                 finding="Rapid change between consecutive observations",
                                 explanation=(f"{_ind_name(m)} changed by {delta:+.1f} {_unit(m)} within {gap:.0f} min "
@@ -189,7 +189,7 @@ def ev_combo_cardioresp(conn, rule, ast, metrics, obs, anchor):
         ev = [hr_last["id"], sp_last["id"]] + [s["id"] for s in sy] + ([rr[-1]["id"]] if rr else [])
         syms = sorted({s["value_text"] for s in sy})
         return [_finding(rule, metric="cardiorespiratory", astronaut_id=ast,
-                         title="URGENT: combined heart-rate, SpO2 and symptom finding",
+                         title="Combined heart-rate, SpO2 and symptom finding",
                          finding="Heart rate high and SpO2 low relative to baseline, with reported symptoms",
                          explanation=(f"Heart rate {hr_last['value_num']:.0f} bpm (baseline {bh['mean']:.0f} ± {bh['sd']:.1f}, z={zh:+.1f}) and "
                                       f"SpO2 {sp_last['value_num']:.0f}% (baseline {bs['mean']:.1f} ± {bs['sd']:.1f}, z={zs:+.1f}) "

@@ -445,7 +445,8 @@ def register(api: Api) -> None:
         private_ok = can_view_private(ctx.principal, ast)
         risks = knowledge.list_risks(conn, body_system=system)
         metrics = list(dict.fromkeys(BODY_SYSTEMS[system]["metrics"] + [c for r in risks for c in r["indicators"]
-                       if knowledge.indicators().get(c, {}).get("subject") != "environment"]))
+                       if knowledge.indicators().get(c, {}).get("subject") != "environment"
+                       and knowledge.indicators().get(c, {}).get("category") not in ("radiation", "symptom")]))
         if not private_ok:
             metrics = [c for c in metrics if knowledge.indicators()[c].get("privacy") != "private"]
         latest = _latest(ctx, ast, metrics)
@@ -474,6 +475,7 @@ def register(api: Api) -> None:
         return {"system": system, "label": BODY_SYSTEMS[system]["label"], "risks": risks,
                 "hazards": sorted({(h["hazard_id"], h["name"]) for r in risks for h in r["hazards"]}),
                 "metrics": metrics, "latest": latest,
+                "metric_names": {c: knowledge.indicators()[c]["name"] for c in metrics},
                 "symptoms": [{"id": s["id"], "code": s["value_text"], "label": knowledge.symptom_codes().get(s["value_text"], {}).get("label"),
                               "measured_at": s["measured_at"], "severity": db.loads(s["context"], {}).get("severity")} for s in symptoms],
                 "assessment_findings": findings[:15], "open_alerts": rel_alerts, "limitations": limitations,

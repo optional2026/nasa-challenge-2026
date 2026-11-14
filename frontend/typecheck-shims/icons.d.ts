@@ -1,0 +1,31 @@
+declare module "react-icons/lu" {
+  export const LuBookOpen: any;
+  export const LuChartLine: any;
+  export const LuCircle: any;
+  export const LuCircleAlert: any;
+  export const LuCircleCheck: any;
+  export const LuClipboardList: any;
+  export const LuClock: any;
+  export const LuCloudOff: any;
+  export const LuDumbbell: any;
+  export const LuFileText: any;
+  export const LuLayoutDashboard: any;
+  export const LuLoaderCircle: any;
+  export const LuLock: any;
+  export const LuLogOut: any;
+  export const LuMoon: any;
+  export const LuOrbit: any;
+  export const LuPause: any;
+  export const LuPersonStanding: any;
+  export const LuPlay: any;
+  export const LuRadiation: any;
+  export const LuRotateCcw: any;
+  export const LuSatelliteDish: any;
+  export const LuSend: any;
+  export const LuSettings2: any;
+  export const LuShieldCheck: any;
+  export const LuSiren: any;
+  export const LuSquare: any;
+  export const LuWind: any;
+  export const LuX: any;
+}
