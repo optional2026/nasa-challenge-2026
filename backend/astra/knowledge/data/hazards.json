@@ -1,0 +1,37 @@
+[
+  {
+    "id": "HAZ-RAD",
+    "name": "Space radiation",
+    "description": "Ionizing radiation from galactic cosmic rays, solar particle events and trapped radiation. Invisible to the senses; requires dosimetry and environmental monitoring to detect.",
+    "monitoring_role": "Only dosimeters and radiation area monitors measure exposure. Ordinary physiological sensors (heart rate, blood pressure) cannot measure radiation exposure.",
+    "source_ids": ["SRC-HRP-HAZARDS", "SRC-TB-020-RAD", "SRC-HRP-RADIATION", "SRC-NTRS-HHP-2023"]
+  },
+  {
+    "id": "HAZ-ISO",
+    "name": "Isolation and confinement",
+    "description": "Long periods in small, confined volumes with a small crew and limited contact with family and support systems can affect behavioral health, sleep, team dynamics, workload and fatigue.",
+    "monitoring_role": "Self-reported mood, stress, fatigue, workload and connectedness; sleep records; optional cognitive assessments; private medical communication.",
+    "source_ids": ["SRC-HRP-HAZARDS", "SRC-NTRS-RISK-2019", "SRC-BMED-ER-2025", "SRC-TB-016-BHP"]
+  },
+  {
+    "id": "HAZ-DIST",
+    "name": "Distance from Earth",
+    "description": "Increasing distance delays or interrupts communication and makes resupply, evacuation and real-time medical support from Earth difficult or impossible; crews must operate more independently.",
+    "monitoring_role": "Onboard assessment, local alerting, preloaded procedures, store-and-forward medical reports and synchronization when the Earth link is available.",
+    "source_ids": ["SRC-HRP-HAZARDS", "SRC-NTRS-HHP-2023", "SRC-NTRS-RISK-2019", "SRC-STD3001-V1C"]
+  },
+  {
+    "id": "HAZ-GRAV",
+    "name": "Gravity fields",
+    "description": "Microgravity, partial gravity (Moon ≈ 1/6 g, Mars ≈ 3/8 g) and transitions between gravity fields require adaptation of muscles, bones, inner ear, cardiovascular system and fluid distribution.",
+    "monitoring_role": "Cardiovascular vital signs, exercise and physical performance records, sensorimotor/balance assessments, vision symptoms and clinician eye examinations, specialized bone assessments when available.",
+    "source_ids": ["SRC-HRP-HAZARDS", "SRC-HRP-RISKS", "SRC-NTRS-HHP-2023"]
+  },
+  {
+    "id": "HAZ-ENV",
+    "name": "Hostile and closed environments",
+    "description": "The vehicle or habitat is a closed ecosystem: atmosphere (CO2, oxygen, pressure), temperature, humidity, contaminants, water and food supply, noise, lighting and microbial communities must be controlled.",
+    "monitoring_role": "Environmental sensors (CO2, O2, temperature, humidity, air quality) recorded separately from medical measurements; nutrition and hydration records; illness symptoms and laboratory results.",
+    "source_ids": ["SRC-HRP-HAZARDS", "SRC-NTRS-RISK-2019", "SRC-TB-002-ECLSS", "SRC-TB-004-CO2", "SRC-TB-003-ATM"]
+  }
+]

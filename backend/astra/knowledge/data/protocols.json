@@ -1,0 +1,157 @@
+[
+  {
+    "id": "PROC-DEMO-URGENT-CARDIORESP",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Urgent cardiorespiratory finding: verification and escalation workflow",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-CARDIORESP-COMBO"],
+    "applies_to_risks": ["RISK-CV", "RISK-RESP"],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Not a NASA or mission-approved medical procedure. Contains no treatment instructions. In a real mission the crew follows the mission-approved medical checklist referenced below.",
+    "verification_checklist": [
+      "Sensor placement and contact checked on the wearable",
+      "Heart rate repeated with a second, independent device",
+      "SpO2 repeated with a second pulse oximeter (finger warm and still)",
+      "Symptoms confirmed directly with the crew member (onset time recorded)",
+      "Crew Medical Officer notified"
+    ],
+    "steps": [
+      "Alert the Crew Medical Officer (CMO) and the rest of the crew now.",
+      "Open the mission-approved medical checklist for this situation. [PLACEHOLDER: mission procedure reference to be supplied by the flight surgeon team]",
+      "Complete the verification checklist and record each item in ASTRA.",
+      "Record what the crew member reports (symptoms, severity, onset time).",
+      "Use 'Escalate' to notify ground flight surgeons. If the Earth link is unavailable the medical report is queued and sent automatically when the link returns.",
+      "Continue observations as directed by the CMO; ASTRA links new measurements to this event."
+    ],
+    "escalation": {"notify_roles": ["medical_officer", "flight_surgeon"], "auto_queue_report": true},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-MEDICAL-REVIEW",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Finding referred for medical review",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-BASELINE-SUSTAINED", "DEMO-TEMP-SYMPTOMS", "DEMO-SLEEP-FATIGUE", "DEMO-PERFORMANCE-DECLINE", "DEMO-VISION-SYMPTOM"],
+    "applies_to_risks": [],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Not mission-approved. No treatment instructions.",
+    "verification_checklist": [
+      "Measurement quality reviewed (device, context, technique)",
+      "Relevant history reviewed in ASTRA",
+      "Crew Medical Officer informed"
+    ],
+    "steps": [
+      "Inform the Crew Medical Officer at the next opportunity.",
+      "Review the findings, baseline comparison and source observations shown by ASTRA.",
+      "Add the item to the next private medical conference or send the generated medical report to ground.",
+      "Record the outcome and any follow-up observations requested by medical personnel."
+    ],
+    "escalation": {"notify_roles": ["medical_officer"], "auto_queue_report": false},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-REASSESS",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Repeat / verify a measurement",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-RAPID-CHANGE", "DEMO-QUALITY-REPEAT"],
+    "applies_to_risks": [],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Not mission-approved.",
+    "verification_checklist": [
+      "Device and sensor checked",
+      "Measurement context recorded (rest, posture, activity)",
+      "Measurement repeated"
+    ],
+    "steps": [
+      "Check the device (fit, battery, sensor contact).",
+      "Rest quietly for a few minutes if the measurement should be a resting value.",
+      "Repeat the measurement and enter it in ASTRA.",
+      "If the repeated value confirms the change, ASTRA re-evaluates and may recommend medical review."
+    ],
+    "escalation": {"notify_roles": [], "auto_queue_report": false},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-ILLNESS",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Possible illness observations",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-TEMP-SYMPTOMS"],
+    "applies_to_risks": ["RISK-IMM"],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Not mission-approved. No treatment instructions.",
+    "verification_checklist": [
+      "Temperature repeated with the same method",
+      "Symptom onset time and duration recorded",
+      "Crew Medical Officer informed"
+    ],
+    "steps": [
+      "Inform the Crew Medical Officer.",
+      "Record symptoms with onset time and repeat temperature as directed.",
+      "Follow the mission-approved infection-control procedure. [PLACEHOLDER: mission procedure reference]",
+      "Medication only per approved medical instructions from authorized medical personnel."
+    ],
+    "escalation": {"notify_roles": ["medical_officer"], "auto_queue_report": true},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-RADIATION",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Elevated radiation dose rate",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-RADIATION-SPIKE"],
+    "applies_to_risks": ["RISK-RAD"],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Not a mission-approved radiation flight rule.",
+    "verification_checklist": [
+      "Reading compared with a second dosimeter / area monitor",
+      "Space-weather notification checked",
+      "Flight director / ground notified"
+    ],
+    "steps": [
+      "Compare the reading with other dosimeters and area monitors.",
+      "Notify the commander and ground radiation support.",
+      "Follow the mission-approved radiation event (shelter) procedure. [PLACEHOLDER: mission flight rule reference]",
+      "Keep dosimeters active; ASTRA records the event and cumulative exposure."
+    ],
+    "escalation": {"notify_roles": ["medical_officer", "flight_surgeon"], "auto_queue_report": true},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-CO2",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Cabin CO2 above NASA-STD-3001 [V2 6004] habitat limit",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["NASA-CO2-1H-AVG"],
+    "applies_to_risks": ["RISK-RESP"],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. Environmental warning workflow only.",
+    "verification_checklist": [
+      "Sensor reading compared with another CO2 sensor",
+      "Life-support team / ground informed",
+      "Crew asked about headaches or other symptoms"
+    ],
+    "steps": [
+      "Verify the reading with another sensor.",
+      "Inform the crew and life-support operators per mission procedure.",
+      "Record any symptoms (e.g. headache) in ASTRA so they can be reviewed alongside the environmental record."
+    ],
+    "escalation": {"notify_roles": [], "auto_queue_report": false},
+    "source_id": "SRC-ASTRA-DEMO"
+  },
+  {
+    "id": "PROC-DEMO-BEHAVIORAL-PRIVATE",
+    "version": 1,
+    "title": "SYNTHETIC DEMO — Private behavioral-health follow-up",
+    "approval_status": "SYNTHETIC_DEMO",
+    "applies_to_rules": ["DEMO-BEHAVIORAL-TREND", "DEMO-NOTE-TO-MEDICAL"],
+    "applies_to_risks": ["RISK-BHV"],
+    "disclaimer": "SYNTHETIC DEMONSTRATION PROCEDURE. PRIVATE — not shown to other crew members. Self-reported scores are not a diagnosis.",
+    "verification_checklist": [
+      "Astronaut offered a private medical conference",
+      "Flight surgeon / psychological support informed through private channel"
+    ],
+    "steps": [
+      "Offer the astronaut a private medical or psychological conference.",
+      "Share the private report only with authorized medical personnel.",
+      "Do not discuss the content with other crew members unless the astronaut agrees."
+    ],
+    "escalation": {"notify_roles": ["flight_surgeon"], "auto_queue_report": true},
+    "source_id": "SRC-ASTRA-DEMO"
+  }
+]

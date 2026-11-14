@@ -1,0 +1,175 @@
+{
+  "_note": "Centralized rule configuration. rule_class: CLINICIAN_APPROVED | NASA_OPERATIONAL_REFERENCE | DEMONSTRATION_ONLY. DEMONSTRATION_ONLY rules are synthetic statistical rules for the hackathon workflow and are NEVER NASA-approved medical thresholds.",
+  "rules": [
+    {
+      "id": "CLIN-REFERENCE-RANGE", "version": 1, "name": "Outside clinician-approved individual reference range",
+      "rule_class": "CLINICIAN_APPROVED", "approval_status": "PENDING_CLINICIAN_CONFIGURATION", "active": false,
+      "metrics": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "respiratory_rate", "body_temperature", "blood_glucose"],
+      "evaluation_method": "reference_range", "params": {"min_consecutive": 2},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-CV", "RISK-IMM", "RISK-RESP"],
+      "protocol_id": "PROC-DEMO-MEDICAL-REVIEW", "source_id": null, "effective_date": null,
+      "escalation": {"create_medical_event": true},
+      "description": "Mechanism for clinician-approved reference ranges entered on an approved individual baseline. Inactive until a flight surgeon configures ranges; ASTRA ships with no clinical ranges."
+    },
+    {
+      "id": "NASA-CO2-1H-AVG", "version": 1, "name": "Cabin CO2 1-hour average above NASA-STD-3001 V2 [6004] habitat limit",
+      "rule_class": "NASA_OPERATIONAL_REFERENCE", "approval_status": "NASA_REFERENCED", "active": true,
+      "metrics": ["cabin_co2"], "evaluation_method": "rolling_average_limit",
+      "params": {"window_minutes": 60, "limit": 3.0, "unit": "mmHg", "direction": "above", "min_samples": 2},
+      "context_filter": {}, "severity": "REASSESSMENT", "risk_ids": ["RISK-RESP"],
+      "protocol_id": "PROC-DEMO-CO2", "source_id": "SRC-TB-004-CO2", "effective_date": "2023-12-01",
+      "escalation": {"environment_event": true},
+      "description": "NASA-STD-3001 Volume 2 Rev D [V2 6004] limits the average 1-hour ppCO2 in the habitable volume to no more than 3 mmHg. Used as an ENVIRONMENTAL design/operations reference, not as a medical diagnosis threshold."
+    },
+    {
+      "id": "NASA-SLEEP-SCHEDULE-REF", "version": 1, "name": "Scheduled sleep opportunity shorter than NASA 8.5 h scheduling reference",
+      "rule_class": "NASA_OPERATIONAL_REFERENCE", "approval_status": "NASA_REFERENCED", "active": true,
+      "metrics": ["sleep_opportunity"], "evaluation_method": "schedule_reference",
+      "params": {"reference_minutes": 510},
+      "context_filter": {}, "severity": "INFORMATION", "risk_ids": ["RISK-SLEEP"],
+      "protocol_id": null, "source_id": "SRC-STD3001-V1C", "effective_date": "2023-09-15",
+      "escalation": {"finding_only": true},
+      "description": "Rationale of NASA-STD-3001 Vol. 1 Rev C [V1 6001] recommends an 8.5-hour sleep period in crew schedule planning. Applied ONLY to the scheduled sleep opportunity as an informational scheduling note — not to measured sleep, and not as a diagnosis."
+    },
+    {
+      "id": "DEMO-BASELINE-SUSTAINED", "version": 1, "name": "Sustained deviation from individual baseline",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "respiratory_rate", "body_temperature", "blood_glucose"],
+      "evaluation_method": "baseline_sustained_deviation",
+      "params": {"k_sd": 2.5, "min_consecutive": 3, "window_hours": 72, "escalate_consecutive": 6, "escalate_severity": "MEDICAL_REVIEW"},
+      "context_filter": {"heart_rate": {"activity": ["resting", null]}},
+      "severity": "REASSESSMENT", "risk_ids": ["RISK-CV", "RISK-RESP", "RISK-IMM"],
+      "protocol_id": "PROC-DEMO-MEDICAL-REVIEW", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event_on": "MEDICAL_REVIEW"},
+      "description": "DEMONSTRATION ONLY: ≥3 consecutive valid observations (same context) outside baseline mean ± 2.5 SD within 72 h → reassessment; ≥6 → medical review. Not a clinical threshold."
+    },
+    {
+      "id": "DEMO-RAPID-CHANGE", "version": 1, "name": "Rapid change between consecutive observations",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "respiratory_rate", "body_temperature"],
+      "evaluation_method": "rapid_change", "params": {"k_sd": 4.0, "max_gap_minutes": 120},
+      "context_filter": {"heart_rate": {"activity": ["resting", null]}},
+      "severity": "REASSESSMENT", "risk_ids": ["RISK-CV"],
+      "protocol_id": "PROC-DEMO-REASSESS", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {},
+      "description": "DEMONSTRATION ONLY: change larger than 4 baseline SD between consecutive same-context observations less than 2 h apart → verify/repeat the measurement."
+    },
+    {
+      "id": "DEMO-QUALITY-REPEAT", "version": 1, "name": "Questionable measurement quality",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["*"], "evaluation_method": "quality_flag", "params": {"qualities": ["questionable"]},
+      "context_filter": {}, "severity": "REASSESSMENT", "risk_ids": [],
+      "protocol_id": "PROC-DEMO-REASSESS", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {},
+      "description": "A measurement marked questionable is never interpreted as abnormal; ASTRA recommends repeating it."
+    },
+    {
+      "id": "DEMO-CARDIORESP-COMBO", "version": 1, "name": "Combined cardiorespiratory deviation with symptoms",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["heart_rate", "spo2", "respiratory_rate", "symptom"], "evaluation_method": "combo_cardiorespiratory",
+      "params": {"k_sd": 3.0, "window_minutes": 360, "symptoms": ["dizziness", "chest_discomfort", "shortness_of_breath", "palpitations"]},
+      "context_filter": {}, "severity": "URGENT", "risk_ids": ["RISK-CV", "RISK-RESP"],
+      "protocol_id": "PROC-DEMO-URGENT-CARDIORESP", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event": true, "notify_roles": ["medical_officer", "flight_surgeon"]},
+      "description": "DEMONSTRATION ONLY: heart rate high AND SpO2 low (each beyond 3 baseline SD) within 6 h, together with a reported cardiorespiratory symptom → open the urgent procedure. Synthetic rule used to exercise the emergency workflow."
+    },
+    {
+      "id": "DEMO-TEMP-SYMPTOMS", "version": 1, "name": "Temperature deviation with illness symptoms",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["body_temperature", "symptom"], "evaluation_method": "temp_with_symptoms",
+      "params": {"k_sd": 2.5, "min_consecutive": 2, "window_hours": 48, "symptoms": ["sore_throat", "cough", "nasal_congestion", "chills", "unusual_fatigue", "skin_rash"]},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-IMM"],
+      "protocol_id": "PROC-DEMO-ILLNESS", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event": true},
+      "description": "DEMONSTRATION ONLY: ≥2 temperatures above baseline + 2.5 SD within 48 h together with an illness symptom → medical review. Does not establish infection or immune dysfunction."
+    },
+    {
+      "id": "DEMO-VISION-SYMPTOM", "version": 1, "name": "Reported vision change",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["symptom", "vision_change"], "evaluation_method": "symptom_review",
+      "params": {"symptoms": ["blurred_vision", "vision_change", "eye_discomfort"]},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-SANS"],
+      "protocol_id": "PROC-DEMO-MEDICAL-REVIEW", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event": true},
+      "description": "Any reported vision change is referred for clinician eye examination. A questionnaire cannot diagnose SANS."
+    },
+    {
+      "id": "DEMO-SLEEP-FATIGUE", "version": 1, "name": "Sustained short sleep relative to baseline with fatigue",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["sleep_duration", "fatigue"], "evaluation_method": "sleep_sustained",
+      "params": {"k_sd": 2.0, "min_consecutive": 3, "fatigue_min": 4, "severity_without_fatigue": "INFORMATION"},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-SLEEP"],
+      "protocol_id": "PROC-DEMO-MEDICAL-REVIEW", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event_on": "MEDICAL_REVIEW"},
+      "description": "DEMONSTRATION ONLY: 3 consecutive sleep periods below baseline − 2 SD → information; with fatigue ≥ 'Very tired' → medical review."
+    },
+    {
+      "id": "DEMO-BEHAVIORAL-TREND", "version": 1, "name": "Self-reported mood and stress trend (private)",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["mood", "stress"], "evaluation_method": "behavioral_trend",
+      "params": {"days": 5, "min_entries": 3, "mood_drop": 1.5, "stress_rise": 1.5},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-BHV"], "private": true,
+      "protocol_id": "PROC-DEMO-BEHAVIORAL-PRIVATE", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event": true, "private": true},
+      "description": "DEMONSTRATION ONLY, PRIVATE: 5-day mean mood ≥1.5 levels below the personal baseline AND stress ≥1.5 levels above → offer private medical conference. Self-report, not a diagnosis."
+    },
+    {
+      "id": "DEMO-NOTE-TO-MEDICAL", "version": 1, "name": "Astronaut left a private note for medical support",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["mood"], "evaluation_method": "note_to_medical", "params": {},
+      "context_filter": {}, "severity": "INFORMATION", "risk_ids": ["RISK-BHV"], "private": true,
+      "protocol_id": "PROC-DEMO-BEHAVIORAL-PRIVATE", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"private": true},
+      "description": "Routes the optional 'anything you want medical support to know' answer privately to medical personnel."
+    },
+    {
+      "id": "DEMO-EXERCISE-ADHERENCE", "version": 1, "name": "Exercise sessions completed below plan",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["exercise_session"], "evaluation_method": "exercise_adherence",
+      "params": {"days": 7, "min_ratio": 0.7, "min_planned": 4},
+      "context_filter": {}, "severity": "INFORMATION", "risk_ids": ["RISK-MSK"],
+      "protocol_id": null, "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {},
+      "description": "DEMONSTRATION ONLY: fewer than 70% of planned sessions completed in 7 days → information. Adherence is not bone density; a specialized assessment is needed to evaluate bone."
+    },
+    {
+      "id": "DEMO-PERFORMANCE-DECLINE", "version": 1, "name": "Physical performance below personal baseline",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["physical_performance"], "evaluation_method": "performance_decline",
+      "params": {"k_sd": 2.0, "min_consecutive": 2},
+      "context_filter": {}, "severity": "MEDICAL_REVIEW", "risk_ids": ["RISK-MSK"],
+      "protocol_id": "PROC-DEMO-MEDICAL-REVIEW", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"create_medical_event": true},
+      "description": "DEMONSTRATION ONLY: 2 consecutive results of the same test below baseline − 2 SD → medical review and specialized assessment reminder."
+    },
+    {
+      "id": "DEMO-HYDRATION-TREND", "version": 1, "name": "Daily water intake below personal baseline",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["water_intake"], "evaluation_method": "daily_total_low",
+      "params": {"k_sd": 2.0, "min_days": 3},
+      "context_filter": {}, "severity": "INFORMATION", "risk_ids": ["RISK-NUT", "RISK-RENAL"],
+      "protocol_id": null, "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {},
+      "description": "DEMONSTRATION ONLY: 3 complete days with total water intake below the personal daily baseline − 2 SD → information. Does not diagnose kidney stones."
+    },
+    {
+      "id": "DEMO-RADIATION-SPIKE", "version": 1, "name": "Radiation dose rate far above recent level",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["radiation_dose_rate"], "evaluation_method": "radiation_spike",
+      "params": {"factor": 5.0, "trailing_hours": 24, "min_trailing_samples": 6},
+      "context_filter": {}, "severity": "URGENT", "risk_ids": ["RISK-RAD"],
+      "protocol_id": "PROC-DEMO-RADIATION", "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"environment_event": true, "create_medical_event": false},
+      "description": "DEMONSTRATION ONLY: dose rate ≥ 5× the trailing 24 h median → environmental radiation event and urgent procedure (synthetic). Real missions use space-weather alerts and flight rules."
+    },
+    {
+      "id": "DEMO-MISSING-DATA", "version": 1, "name": "Scheduled measurement missing",
+      "rule_class": "DEMONSTRATION_ONLY", "approval_status": "SYNTHETIC_NOT_VALIDATED", "active": true,
+      "metrics": ["*"], "evaluation_method": "missing_data", "params": {"grace_factor": 2.0},
+      "context_filter": {}, "severity": "INFORMATION", "risk_ids": [],
+      "protocol_id": null, "source_id": "SRC-ASTRA-DEMO", "effective_date": "2026-11-14",
+      "escalation": {"finding_only": true},
+      "description": "A required measurement older than twice its scheduled interval is reported as MISSING — never as healthy."
+    }
+  ]
+}

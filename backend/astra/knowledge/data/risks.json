@@ -1,0 +1,271 @@
+[
+  {
+    "id": "RISK-CV",
+    "name": "Cardiovascular adaptation",
+    "nasa_risk_title": "Risk of Cardiovascular Adaptations Contributing to Adverse Mission Performance and Health Outcomes",
+    "description": "Microgravity shifts body fluids toward the head and changes cardiovascular loading. The heart and blood vessels adapt, which can affect exercise capacity and tolerance of gravity transitions (for example orthostatic changes after landing).",
+    "hazards": [
+      {"hazard_id": "HAZ-GRAV", "rationale": "Fluid redistribution and reduced cardiovascular loading in micro/partial gravity."},
+      {"hazard_id": "HAZ-RAD", "rationale": "Space radiation is studied as a possible contributor to long-term cardiovascular effects (research concern)."},
+      {"hazard_id": "HAZ-ISO", "rationale": "Sleep loss and stress can influence autonomic and cardiovascular measures."}
+    ],
+    "body_systems": ["cardiovascular"],
+    "indicator_codes": ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "respiratory_rate", "exercise_session", "symptom"],
+    "measurement_methods": ["Wearable heart-rate sensor (continuous)", "Automated or manual blood-pressure cuff", "Pulse oximeter", "Respiratory rate count or wearable estimate", "Exercise logs"],
+    "symptoms": ["palpitations", "dizziness", "chest_discomfort", "shortness_of_breath"],
+    "limitations": [
+      "Heart rate and blood pressure vary with activity, posture, time of day, caffeine, stress and measurement technique; context must be recorded.",
+      "ASTRA compares values with the astronaut's own baseline; it does not diagnose cardiovascular disease or arrhythmia.",
+      "A wrist wearable is not an ECG; rhythm assessment requires clinician-directed equipment."
+    ],
+    "countermeasure_ids": ["CM-EXERCISE", "CM-MED-CAPABILITY"],
+    "source_ids": ["SRC-HRP-RISKS", "SRC-HSRB-RISKS", "SRC-NATURE-CV-2026", "SRC-NTRS-HRP-2023"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-MSK",
+    "name": "Bone and musculoskeletal deterioration",
+    "nasa_risk_title": "Risk of Bone Fracture due to Spaceflight-induced Changes to Bone; Risk of Reduced Physical Performance Capabilities Due to Reduced Muscle Size, Strength, and Endurance",
+    "description": "Without gravitational loading, bone can lose mineral and become more fragile, and muscles can lose size, strength and endurance. Exercise is the primary in-flight countermeasure.",
+    "hazards": [
+      {"hazard_id": "HAZ-GRAV", "rationale": "Reduced mechanical loading of bones and muscles."},
+      {"hazard_id": "HAZ-DIST", "rationale": "Long missions far from Earth extend exposure and limit specialized imaging."}
+    ],
+    "body_systems": ["musculoskeletal"],
+    "indicator_codes": ["exercise_session", "physical_performance", "pain_score", "mobility_limitation", "bone_assessment", "symptom"],
+    "measurement_methods": ["Exercise device logs (type, duration, completion)", "Physical performance tests (e.g. strength, endurance)", "Pain and mobility self-report", "Specialized bone assessment (e.g. densitometry) — ground or clinician-directed"],
+    "symptoms": ["back_pain", "joint_or_muscle_pain", "mobility_limitation"],
+    "limitations": [
+      "Exercise adherence is NOT a measurement of bone density. ASTRA never estimates bone loss from fitness data.",
+      "Bone mineral density requires a specialized examination; ASTRA shows when such an assessment is due or recommended.",
+      "Physical performance tests depend on effort, fatigue and test conditions."
+    ],
+    "countermeasure_ids": ["CM-EXERCISE", "CM-NUTRITION"],
+    "source_ids": ["SRC-HRP-RISKS", "SRC-HSRB-RISKS", "SRC-NTRS-HRP-2023"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY",
+    "specialized_assessment_note": "A specialized bone assessment is required to evaluate bone density."
+  },
+  {
+    "id": "RISK-IMM",
+    "name": "Altered immune response",
+    "nasa_risk_title": "Risk of Adverse Health Event Due To Altered Immune Response; Risk of Adverse Health Effects Due to Host-Microorganism Interactions",
+    "description": "Spaceflight can alter immune function and the interaction between the crew and microorganisms in a closed habitat.",
+    "hazards": [
+      {"hazard_id": "HAZ-ENV", "rationale": "Closed habitat microbial communities and host-microorganism interactions."},
+      {"hazard_id": "HAZ-ISO", "rationale": "Stress and sleep disruption are studied as contributors to immune changes."},
+      {"hazard_id": "HAZ-RAD", "rationale": "Immune-related effects of space radiation are a research concern."}
+    ],
+    "body_systems": ["immune"],
+    "indicator_codes": ["body_temperature", "symptom", "fatigue", "lab_result", "immune_assessment"],
+    "measurement_methods": ["Thermometer", "Symptom reports with onset and duration", "Clinician-directed laboratory tests", "Clinician immune assessment"],
+    "symptoms": ["sore_throat", "cough", "nasal_congestion", "chills", "skin_rash", "unusual_fatigue", "nausea"],
+    "limitations": [
+      "Body temperature and symptoms alone cannot establish immune dysfunction.",
+      "ASTRA never infers immune-cell counts or immune status without laboratory data entered by a clinician."
+    ],
+    "countermeasure_ids": ["CM-HYGIENE", "CM-SLEEP-SCHED", "CM-MED-CAPABILITY"],
+    "source_ids": ["SRC-HRP-RISKS", "SRC-HSRB-RISKS", "SRC-NTRS-RISK-2019"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-BHV",
+    "name": "Behavioral health",
+    "nasa_risk_title": "Risk of Adverse Cognitive or Behavioral Conditions and Psychiatric Disorders; Risk of Performance and Behavioral Health Decrements Due to Inadequate Cooperation, Coordination, Communication, and Psychosocial Adaptation within a Team",
+    "description": "Isolation, confinement, workload and distance from family and support can affect mood, stress, cognition, team functioning and performance.",
+    "hazards": [
+      {"hazard_id": "HAZ-ISO", "rationale": "Isolation, confinement and team dynamics."},
+      {"hazard_id": "HAZ-DIST", "rationale": "Distance from family and real-time support; communication delay."},
+      {"hazard_id": "HAZ-ENV", "rationale": "Habitability factors (noise, lighting, privacy, CO2) can affect wellbeing."}
+    ],
+    "body_systems": ["behavioral"],
+    "indicator_codes": ["mood", "stress", "fatigue", "workload", "social_connectedness", "sleep_quality", "cognitive_pvt_rt"],
+    "measurement_methods": ["Private daily self-report check-in (five-level descriptive scales)", "Sleep records", "Optional cognitive assessment (e.g. reaction-time test)", "Private medical/psychological conference"],
+    "symptoms": ["difficulty_concentrating", "unusual_fatigue", "reduced_appetite"],
+    "limitations": [
+      "Mood, stress and fatigue scores are self-reported indicators, not psychiatric diagnoses.",
+      "Any question may be skipped; missing answers are shown as missing, never as 'fine'.",
+      "Behavioral-health information is private: visible only to the astronaut and authorized medical personnel."
+    ],
+    "countermeasure_ids": ["CM-PMC", "CM-SLEEP-SCHED"],
+    "source_ids": ["SRC-BMED-ER-2025", "SRC-TB-016-BHP", "SRC-HRP-RISKS", "SRC-STD3001-V1C"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY",
+    "privacy": "PRIVATE_MEDICAL"
+  },
+  {
+    "id": "RISK-SLEEP",
+    "name": "Sleep and circadian disruption",
+    "nasa_risk_title": "Risk of Performance Decrements and Adverse Health Outcomes Resulting from Sleep Loss, Circadian Desynchronization, and Work Overload",
+    "description": "Irregular schedules, workload, light, noise and the environment can shorten or disrupt sleep and shift circadian rhythms, affecting health and performance.",
+    "hazards": [
+      {"hazard_id": "HAZ-ISO", "rationale": "Workload, confinement and schedule pressure."},
+      {"hazard_id": "HAZ-ENV", "rationale": "Noise, light, temperature and CO2 in the sleep environment."},
+      {"hazard_id": "HAZ-DIST", "rationale": "Mission operations across time zones / non-24 h days (e.g. Mars sol)."}
+    ],
+    "body_systems": ["neurological", "behavioral"],
+    "indicator_codes": ["sleep_duration", "sleep_quality", "sleep_awakenings", "sleep_opportunity", "fatigue", "workload", "cognitive_pvt_rt"],
+    "measurement_methods": ["Sleep log (start/end, quality, awakenings)", "Wearable actigraphy estimate", "Mission schedule (sleep opportunity)", "Fatigue self-report", "Optional reaction-time test"],
+    "symptoms": ["unusual_fatigue", "difficulty_concentrating"],
+    "limitations": [
+      "NASA-STD-3001 Vol. 1 [V1 6001] rationale recommends an 8.5-hour sleep period in crew schedule planning. ASTRA uses it ONLY as a scheduling reference for the sleep opportunity — not as a diagnostic threshold and not as a substitute for the mission schedule.",
+      "Self-reported and wearable sleep estimates can differ from laboratory sleep measurement."
+    ],
+    "countermeasure_ids": ["CM-SLEEP-SCHED"],
+    "source_ids": ["SRC-STD3001-V1C", "SRC-TB-041-SLEEP", "SRC-HRP-RISKS", "SRC-HSRB-RISKS"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-SANS",
+    "name": "Spaceflight-associated neuro-ocular syndrome (SANS)",
+    "nasa_risk_title": "Risk of Spaceflight Associated Neuro-ocular Syndrome (SANS)",
+    "description": "The structure of the eyes and brain can change during spaceflight, associated with headward fluid shift. Changes are assessed with clinical eye examinations and imaging.",
+    "hazards": [
+      {"hazard_id": "HAZ-GRAV", "rationale": "Headward fluid shift in microgravity."},
+      {"hazard_id": "HAZ-ENV", "rationale": "Elevated CO2 is discussed as a possible contributing factor."}
+    ],
+    "body_systems": ["neurological"],
+    "indicator_codes": ["vision_change", "symptom", "eye_exam", "imaging_result"],
+    "measurement_methods": ["Symptom self-report (vision changes, headache)", "Clinician-performed eye examination", "Ocular ultrasound or other imaging when available"],
+    "symptoms": ["blurred_vision", "vision_change", "eye_discomfort", "headache"],
+    "limitations": [
+      "SANS can NOT be diagnosed with a questionnaire. Reported vision symptoms trigger a recommendation for clinician review only.",
+      "Imaging and eye-exam results must be entered and interpreted by qualified personnel."
+    ],
+    "countermeasure_ids": ["CM-EYE-MONITORING", "CM-CO2-CONTROL"],
+    "source_ids": ["SRC-HRP-RISKS", "SRC-HSRB-RISKS", "SRC-NTRS-HRP-2023", "SRC-TB-004-CO2"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-SMV",
+    "name": "Sensorimotor and vestibular changes",
+    "nasa_risk_title": "Risk of Altered Sensorimotor/Vestibular Function Impacting Critical Mission Tasks, Human Health, and Long-Term Health",
+    "description": "Transitions between gravity fields change how the inner ear and brain interpret motion, which can affect balance, coordination, motion sickness and hand-eye coordination.",
+    "hazards": [
+      {"hazard_id": "HAZ-GRAV", "rationale": "Gravitational transitions (launch, landing, lunar/Mars surface)."}
+    ],
+    "body_systems": ["neurological"],
+    "indicator_codes": ["motion_sickness_score", "balance_assessment", "coordination_test", "symptom"],
+    "measurement_methods": ["Motion sickness self-report", "Balance assessment", "Coordination / hand-eye tests", "Functional task performance tests"],
+    "symptoms": ["dizziness", "motion_sickness", "balance_problem", "nausea"],
+    "limitations": [
+      "Self-reported motion sickness is subjective.",
+      "Performance tests are affected by fatigue, practice effects and test conditions."
+    ],
+    "countermeasure_ids": ["CM-SMV-READAPTATION"],
+    "source_ids": ["SRC-HSRB-RISKS", "SRC-NTRS-HRP-2023"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-NUT",
+    "name": "Nutrition and hydration",
+    "nasa_risk_title": "Nutrition and food-system related human system concerns (spaceflight food and water)",
+    "description": "Adequate food and water intake supports all body systems; closed habitats depend on limited stored or recycled supplies.",
+    "hazards": [
+      {"hazard_id": "HAZ-ENV", "rationale": "Limited food and water systems in a closed environment."},
+      {"hazard_id": "HAZ-DIST", "rationale": "No resupply on long missions."}
+    ],
+    "body_systems": ["renal_metabolic"],
+    "indicator_codes": ["water_intake", "energy_intake", "appetite", "lab_result", "exercise_session", "symptom"],
+    "measurement_methods": ["Water intake log", "Food intake log", "Appetite self-report", "Clinician-directed laboratory tests"],
+    "symptoms": ["reduced_appetite", "digestive_discomfort"],
+    "limitations": [
+      "ASTRA does not estimate nutrient deficiencies from incomplete food logs.",
+      "Logged intake depends on complete and accurate recording."
+    ],
+    "countermeasure_ids": ["CM-NUTRITION"],
+    "source_ids": ["SRC-NTRS-RISK-2019", "SRC-TB-002-ECLSS"],
+    "evidence_status": "NASA_RECOGNIZED_CONCERN",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-RENAL",
+    "name": "Renal stone risk",
+    "nasa_risk_title": "Risk of Renal Stone Formation",
+    "description": "Bone mineral changes, fluid status and diet can increase the risk of kidney stones during spaceflight.",
+    "hazards": [
+      {"hazard_id": "HAZ-GRAV", "rationale": "Bone calcium release in microgravity."},
+      {"hazard_id": "HAZ-ENV", "rationale": "Hydration and diet constraints."}
+    ],
+    "body_systems": ["renal_metabolic"],
+    "indicator_codes": ["water_intake", "symptom", "lab_result", "imaging_result"],
+    "measurement_methods": ["Hydration records", "Urinary symptom reports", "Clinician-entered laboratory findings", "Imaging (e.g. ultrasound) when available"],
+    "symptoms": ["flank_pain", "urinary_change"],
+    "limitations": [
+      "Kidney stones cannot be diagnosed from hydration data. ASTRA only shows hydration trends and symptom reports for clinician review."
+    ],
+    "countermeasure_ids": ["CM-HYDRATION", "CM-NUTRITION"],
+    "source_ids": ["SRC-HSRB-RISKS", "SRC-NTRS-HRP-2023", "SRC-NTRS-RISK-2019"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-RESP",
+    "name": "Respiratory and environmental health",
+    "nasa_risk_title": "Risk of Toxic Exposure; CO2 and habitable-atmosphere hazards",
+    "description": "Cabin CO2, oxygen partial pressure, contaminants and particulates in a closed atmosphere can affect breathing, headaches and performance.",
+    "hazards": [
+      {"hazard_id": "HAZ-ENV", "rationale": "Closed atmosphere relies on life-support equipment to remove CO2 and contaminants."}
+    ],
+    "body_systems": ["respiratory"],
+    "indicator_codes": ["spo2", "respiratory_rate", "symptom", "cabin_co2", "cabin_o2", "air_tvoc", "air_pm25"],
+    "measurement_methods": ["Pulse oximeter", "Respiratory rate", "Respiratory symptom reports", "Environmental sensors (CO2, O2, air quality)"],
+    "symptoms": ["shortness_of_breath", "cough", "headache"],
+    "limitations": [
+      "Environmental sensor readings describe the cabin, not the astronaut. They are stored and displayed separately from direct medical measurements.",
+      "Individual sensitivity to CO2 varies widely (NTRS 20150019624)."
+    ],
+    "countermeasure_ids": ["CM-CO2-CONTROL"],
+    "source_ids": ["SRC-TB-004-CO2", "SRC-NTRS-CO2-2015", "SRC-TB-003-ATM", "SRC-HSRB-RISKS"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-RAD",
+    "name": "Radiation exposure",
+    "nasa_risk_title": "Risk of Radiation Carcinogenesis (and other space radiation health risks)",
+    "description": "Space radiation exposure increases the risk of cancer later in life and is studied for possible neurological, cardiovascular and immune effects. Large solar particle events can cause acute exposure.",
+    "hazards": [
+      {"hazard_id": "HAZ-RAD", "rationale": "Galactic cosmic rays, solar particle events, trapped radiation."}
+    ],
+    "body_systems": ["immune", "neurological", "cardiovascular"],
+    "indicator_codes": ["radiation_dose_rate", "radiation_dose_cumulative"],
+    "measurement_methods": ["Personal dosimeter", "Area radiation monitor", "Space-weather notifications"],
+    "symptoms": ["nausea"],
+    "limitations": [
+      "Exposure records are environmental/dosimetric data, not a diagnosis.",
+      "Ordinary heart-rate or blood-pressure sensors cannot measure radiation exposure.",
+      "Dose and dose-rate units are stored explicitly (µGy/h, mGy)."
+    ],
+    "countermeasure_ids": ["CM-SHIELDING", "CM-DOSIMETRY"],
+    "source_ids": ["SRC-TB-020-RAD", "SRC-HRP-RADIATION", "SRC-PMC-RAD-2024", "SRC-STD3001-V1C"],
+    "evidence_status": "NASA_RECOGNIZED_RISK",
+    "approval_status": "REFERENCE_ONLY"
+  },
+  {
+    "id": "RISK-MED",
+    "name": "Mission-related medical conditions",
+    "nasa_risk_title": "In-mission medical care capability (autonomous medical care far from Earth)",
+    "description": "Illness or injury may occur during the mission. With increasing distance the crew depends on onboard medical capability, records and approved procedures.",
+    "hazards": [
+      {"hazard_id": "HAZ-DIST", "rationale": "Limited evacuation and delayed communication."},
+      {"hazard_id": "HAZ-ENV", "rationale": "Closed habitat hazards."}
+    ],
+    "body_systems": ["cardiovascular", "respiratory", "neurological", "musculoskeletal", "immune", "behavioral", "renal_metabolic"],
+    "indicator_codes": ["lab_result", "symptom"],
+    "measurement_methods": ["Medical examinations", "Medication records", "Allergy and condition records", "Clinician observations", "Procedure records"],
+    "symptoms": [],
+    "limitations": [
+      "Medication recommendations come ONLY from approved medical instructions entered by authorized personnel. ASTRA never generates treatment instructions."
+    ],
+    "countermeasure_ids": ["CM-MED-CAPABILITY", "CM-AUTONOMY"],
+    "source_ids": ["SRC-STD3001-V1C", "SRC-NTRS-HHP-2023", "SRC-NTRS-RISK-2019"],
+    "evidence_status": "NASA_RECOGNIZED_CONCERN",
+    "approval_status": "REFERENCE_ONLY"
+  }
+]
