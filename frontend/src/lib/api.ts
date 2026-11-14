@@ -44,7 +44,7 @@ export async function api<T = any>(method: string, path: string, body?: any): Pr
   if (text) { try { data = JSON.parse(text); } catch { data = text; } }
   if (!res.ok) {
     const e = data?.error || {};
-    if (res.status === 401 && path !== "/auth/login") onUnauthorized();
+    if (res.status === 401 && path !== "/auth/login" && path !== "/auth/select-profile") onUnauthorized();
     throw new ApiError(res.status, e.code || "http_error", e.message || `Request failed (${res.status})`, e.details);
   }
   return data as T;
@@ -52,6 +52,7 @@ export async function api<T = any>(method: string, path: string, body?: any): Pr
 
 export const get = <T = any>(path: string) => api<T>("GET", path);
 export const post = <T = any>(path: string, body: any = {}) => api<T>("POST", path, body);
+export const patch = <T = any>(path: string, body: any = {}) => api<T>("PATCH", path, body);
 
 export function qs(params: Record<string, any>): string {
   const p = new URLSearchParams();

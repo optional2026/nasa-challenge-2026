@@ -1,5 +1,6 @@
 @echo off
 REM ASTRA one-click start for Windows. Creates a virtual environment on first run.
+REM The database is cleared and re-seeded with the synthetic demo crew on every start.
 cd /d "%~dp0backend"
 if not exist .venv (
   echo Creating Python virtual environment...
@@ -11,5 +12,5 @@ if not exist .venv (
   call .venv\Scripts\activate.bat
 )
 start "" http://127.0.0.1:8000
-python run.py %*
+python run.py --reset-db %*
 pause

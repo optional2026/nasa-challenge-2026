@@ -41,3 +41,13 @@ def secret_key() -> str:
         except OSError:
             pass
     return key_file.read_text().strip()
+
+
+def public_demo() -> bool:
+    """Public demonstration mode (rate limits, locked configuration). Set by tools/start_public_demo.*"""
+    return os.environ.get("ASTRA_PUBLIC_DEMO") == "1"
+
+
+def demo_password() -> str:
+    """Password for the synthetic demo accounts. Override with ASTRA_DEMO_PASSWORD (recommended when public)."""
+    return os.environ.get("ASTRA_DEMO_PASSWORD") or "astra-demo"

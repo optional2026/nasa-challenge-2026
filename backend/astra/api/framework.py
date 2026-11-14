@@ -81,13 +81,9 @@ def _authenticate(request: Request, conn, mode: str) -> Principal:
         user = db.one(conn, "SELECT * FROM users WHERE id=? AND active=1", (int(claims["sub"]),))
         if not user:
             raise ApiError(401, "invalid_token", "user no longer active")
-        mission_id = None
-        if user["astronaut_id"]:
-            a = db.one(conn, "SELECT mission_id FROM astronauts WHERE id=?", (user["astronaut_id"],))
-            mission_id = a["mission_id"] if a else None
-        return Principal(kind="user", name=user["username"], role=user["role"], user_id=user["id"],
-                         astronaut_id=user["astronaut_id"], mission_id=mission_id,
-                         display_name=user["display_name"])
+        if user["role"] != claims.get("role"):
+            raise ApiError(401, "invalid_token", "role changed; sign in again")
+        return security.user_principal(conn, user)
     dev_key = request.headers.get("x-device-key")
     if dev_key and mode == "user_or_device":
         from ..services.ingestion import device_principal

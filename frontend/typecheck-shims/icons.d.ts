@@ -7,10 +7,16 @@ declare module "react-icons/lu" {
   export const LuClipboardList: any;
   export const LuClock: any;
   export const LuCloudOff: any;
+  export const LuDatabase: any;
   export const LuDumbbell: any;
+  export const LuEarth: any;
+  export const LuRocket: any;
+  export const LuUserPlus: any;
+  export const LuUsers: any;
   export const LuFileText: any;
   export const LuLayoutDashboard: any;
   export const LuLoaderCircle: any;
+  export const LuInfo: any;
   export const LuLock: any;
   export const LuLogOut: any;
   export const LuMoon: any;
@@ -18,6 +24,7 @@ declare module "react-icons/lu" {
   export const LuPause: any;
   export const LuPersonStanding: any;
   export const LuPlay: any;
+  export const LuPlug: any;
   export const LuRadiation: any;
   export const LuRotateCcw: any;
   export const LuSatelliteDish: any;

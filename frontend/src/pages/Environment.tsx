@@ -20,9 +20,9 @@ export default function Environment() {
   const [obs, setObs] = useState<string | null>(null);
   const { data, error, reload } = useData<any>("/environment", ENV_EVENTS);
   const { data: hist } = useData<any>(`/environment/history?hours=${hours}`, ENV_EVENTS, [hours]);
-  const { data: rad } = useData<any>(`/environment/radiation?hours=${hours}${astronautId && user?.role !== "admin" ? `&astronaut_id=${astronautId}` : ""}`, ENV_EVENTS, [hours, astronautId]);
+  const { data: rad } = useData<any>(`/environment/radiation?hours=${hours}${astronautId ? `&astronaut_id=${astronautId}` : ""}`, ENV_EVENTS, [hours, astronautId]);
   const { data: events } = useData<any[]>(`/environment/events?hours=${Number(hours) * 4}`, ENV_EVENTS, [hours]);
-  const { data: overlay } = useData<any>(astronautId && user?.role !== "admin" ? `/environment/overlay?astronaut_id=${astronautId}&metric_code=heart_rate&env_metric=cabin_co2&hours=${hours}` : null, ENV_EVENTS, [hours, astronautId]);
+  const { data: overlay } = useData<any>(astronautId ? `/environment/overlay?astronaut_id=${astronautId}&metric_code=heart_rate&env_metric=cabin_co2&hours=${hours}` : null, ENV_EVENTS, [hours, astronautId]);
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   if (!data) return <Loading />;
   const s = hist?.series || {};

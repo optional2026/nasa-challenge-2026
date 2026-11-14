@@ -44,10 +44,14 @@ def _clamp(x, lo=0.0, hi=1.0):
 
 
 class ScenarioBuilder:
-    def __init__(self, scenario: str, start: datetime, days: int, seed: int, launch: datetime, run_id: str):
+    def __init__(self, scenario: str, start: datetime, days: int, seed: int, launch: datetime, run_id: str,
+                 primary: str = PRIMARY, crew_ids: set[str] | None = None):
         if scenario not in SCENARIOS:
             raise ValueError(f"unknown scenario {scenario}")
         self.s, self.start, self.days, self.launch, self.run_id = scenario, start, days, launch, run_id
+        self.primary = primary  # astronaut who experiences the scenario; the rest of the crew stays nominal
+        # astronauts to generate data for (None = whole crew). An astronaut generating demo data gets only their own.
+        self.crew = [a for a in ASTRONAUTS if crew_ids is None or a["id"] in crew_ids]
         self.rng = random.Random(seed)
         self.onset = max(1.0, days * 0.55)
         self.out: list[Emission] = []
@@ -83,12 +87,12 @@ class ScenarioBuilder:
 
     # ---------------------------------------------------------------- build
     def build(self) -> list[Emission]:
-        for a in ASTRONAUTS:
-            self._crew(a, primary=(a["id"] == PRIMARY))
+        for a in self.crew:
+            self._crew(a, primary=(a["id"] == self.primary))
         self._environment()
         for d in range(self.days + 1):
             t = self.start + timedelta(days=d, hours=8, minutes=5)
-            for a in ASTRONAUTS:
+            for a in self.crew:
                 self.out.append(Emission(t, "daily_assessment", None, a["id"], {}))
         end = self.start + timedelta(days=self.days)
         self.out = sorted(e for e in self.out if self.start <= e.t <= end)

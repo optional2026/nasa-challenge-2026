@@ -6,8 +6,8 @@ from datetime import timedelta
 from .. import audit, db, schemas
 from ..services import environment, knowledge, sync, trends
 from .common import default_mission, map_errors, mission_day, scoped_astronaut
-from .framework import Api, ApiError, Ctx
-from .routes_data import ALL_USERS, HEALTH_ROLES
+from .framework import Api, ApiError, Ctx, not_found
+from .routes_data import ALL_USERS, HEALTH_ROLES, VIEW_ROLES
 
 SIM_ROLES = ("astronaut", "medical_officer", "flight_surgeon", "admin")
 
@@ -86,7 +86,7 @@ def register(api: Api) -> None:
         hours = int(ctx.request.query_params.get("hours", 240))
         rows = trends.series(ctx.conn, None, "radiation_dose_rate", start=db.hours_ago(hours), limit=20000)
         data["area_dose_rate"] = [{"t": r["measured_at"], "v": r["value_num"], "location": r["location"], "id": r["id"]} for r in rows]
-        if ast or ctx.principal.role in ("medical_officer", "flight_surgeon"):
+        if ast or ctx.principal.role in ("medical_officer", "flight_surgeon", "admin"):
             target = ast or ctx.request.query_params.get("astronaut_id")
             if target:
                 scoped_astronaut(ctx, target)
@@ -95,7 +95,7 @@ def register(api: Api) -> None:
         return data
 
     @api.route("GET", "/environment/overlay", summary="Medical series alongside an environmental series (context only)",
-               tags=["environment"], roles=HEALTH_ROLES)
+               tags=["environment"], roles=VIEW_ROLES)
     def env_overlay(ctx: Ctx):
         qp = ctx.request.query_params
         ast = scoped_astronaut(ctx, qp.get("astronaut_id"))
@@ -107,7 +107,7 @@ def register(api: Api) -> None:
 
     # ---------------------------------------------------------------- routine
     @api.route("GET", "/routine", summary="Today's required assessments and completion history", tags=["views"],
-               query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+               query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def routine(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         devs = db.all_(ctx.conn, "SELECT id, device_type, model, status, last_seen_at, battery_pct, is_simulated, hardware_validated "
@@ -126,28 +126,72 @@ def register(api: Api) -> None:
         except (RuntimeError, ValueError) as e:
             raise ApiError(409, "simulator_state", str(e))
 
+    EARTH_SIM_ROLES = ("admin", "flight_surgeon")
+
+    def _sim_scope(ctx: Ctx) -> set[str] | None:
+        """Astronauts whose demo data the caller may control or remove (None = whole mission).
+        Crew members (astronaut, CMO): ONLY their own astronaut profile — demo data never touches other crew members.
+        Earth-side (administrator, flight surgeon): any astronaut (mission operations)."""
+        p = ctx.principal
+        if p.role in EARTH_SIM_ROLES:
+            return None
+        return {p.astronaut_id} if p.astronaut_id else set()
+
+    def _sim_control_check(ctx: Ctx) -> None:
+        """Crew members may only control a run that is limited to their own profile."""
+        scope = _sim_scope(ctx)
+        st = RUNNER.status()
+        if scope is None or st["state"] not in ("running", "paused"):
+            return
+        run_scope = st.get("crew_scope")
+        if run_scope == "all" or not set(run_scope) <= scope:
+            raise ApiError(403, "forbidden", "another crew member's or mission control's demo-data run is in progress; "
+                                             "you can only control runs for your own profile")
+
     @api.route("GET", "/simulator", summary="Simulator status (SYNTHETIC data source)", tags=["simulator"], roles=SIM_ROLES)
     def sim_status(ctx: Ctx):
         return RUNNER.status()
 
-    @api.route("POST", "/simulator/start", summary="Start a scenario", tags=["simulator"], body=schemas.SimulatorStartIn, roles=SIM_ROLES)
+    @api.route("POST", "/simulator/start", summary="Start a scenario for ONE astronaut (crew: own profile only)", tags=["simulator"],
+               body=schemas.SimulatorStartIn, roles=SIM_ROLES)
     def sim_start(ctx: Ctx):
-        b = ctx.body
-        res = _sim(lambda: RUNNER.start(b.scenario, b.speed, b.days, b.seed))
+        """Generates synthetic data for exactly one astronaut — the signed-in crew member, or (Earth-side roles) the
+        astronaut named in `astronaut_id`. Shared cabin/environment readings are generated too (they belong to no
+        astronaut). Whole-crew generation requires `whole_crew: true` and an administrator or flight surgeon."""
+        b, p = ctx.body, ctx.principal
+        scope = _sim_scope(ctx)
+        if scope is not None:  # crew member: always their own profile; a different astronaut_id is refused
+            target = p.astronaut_id
+            if not target or (b.astronaut_id and b.astronaut_id != target):
+                raise ApiError(403, "forbidden", "you can only generate demo data for your own profile")
+            if b.whole_crew:
+                raise ApiError(403, "forbidden", "whole-crew demo data can only be generated by mission control (administrator)")
+            crew_ids = {target}
+        else:
+            target = b.astronaut_id or "AST-001"
+            if not db.one(ctx.conn, "SELECT id FROM astronauts WHERE id=?", (target,)):
+                raise not_found("astronaut", target)
+            crew_ids = None if b.whole_crew else {target}
+        res = _sim(lambda: RUNNER.start(b.scenario, b.speed, b.days, b.seed, target, crew_ids=crew_ids,
+                                        started_by=p.actor))
         with db.transaction(ctx.conn):
-            audit.record(ctx.conn, ctx.principal, "simulator.start", "simulator", res["run_id"], b.model_dump())
+            audit.record(ctx.conn, p, "simulator.start", "simulator", res["run_id"],
+                         b.model_dump() | {"astronaut_id": target, "crew_scope": sorted(crew_ids) if crew_ids is not None else "all"})
         return res
 
     @api.route("POST", "/simulator/pause", summary="Pause", tags=["simulator"], roles=SIM_ROLES)
     def sim_pause(ctx: Ctx):
+        _sim_control_check(ctx)
         return _sim(RUNNER.pause)
 
     @api.route("POST", "/simulator/resume", summary="Resume", tags=["simulator"], roles=SIM_ROLES)
     def sim_resume(ctx: Ctx):
+        _sim_control_check(ctx)
         return _sim(RUNNER.resume)
 
     @api.route("POST", "/simulator/stop", summary="Stop", tags=["simulator"], roles=SIM_ROLES)
     def sim_stop(ctx: Ctx):
+        _sim_control_check(ctx)
         res = _sim(RUNNER.stop)
         with db.transaction(ctx.conn):
             audit.record(ctx.conn, ctx.principal, "simulator.stop", "simulator", res["run_id"], {})
@@ -155,12 +199,23 @@ def register(api: Api) -> None:
 
     @api.route("POST", "/simulator/speed", summary="Change speed", tags=["simulator"], body=schemas.SimulatorSpeedIn, roles=SIM_ROLES)
     def sim_speed(ctx: Ctx):
+        _sim_control_check(ctx)
         return _sim(lambda: RUNNER.set_speed(ctx.body.speed))
 
-    @api.route("POST", "/simulator/reset", summary="Stop and delete all simulator-generated records", tags=["simulator"],
-               roles=SIM_ROLES)
+    @api.route("POST", "/simulator/reset", summary="Stop and delete simulator-generated records (crew: own profile only)",
+               tags=["simulator"], query=schemas.SimulatorResetQuery, roles=SIM_ROLES)
     def sim_reset(ctx: Ctx):
-        return _sim(lambda: RUNNER.reset(ctx.principal))
+        """Crew members remove only their own generated records. Earth-side roles remove one astronaut's records
+        with `?astronaut_id=`, or everything without it. Shared synthetic cabin data is always cleared."""
+        _sim_control_check(ctx)
+        scope = _sim_scope(ctx)
+        if scope is None and ctx.query.astronaut_id:
+            if not db.one(ctx.conn, "SELECT id FROM astronauts WHERE id=?", (ctx.query.astronaut_id,)):
+                raise not_found("astronaut", ctx.query.astronaut_id)
+            scope = {ctx.query.astronaut_id}
+        elif scope is not None and ctx.query.astronaut_id and {ctx.query.astronaut_id} != scope:
+            raise ApiError(403, "forbidden", "you can only remove demo data from your own profile")
+        return _sim(lambda: RUNNER.reset(ctx.principal, astronaut_ids=scope))
 
     # ---------------------------------------------------------------- sync
     @api.route("GET", "/sync", summary="Synchronization queue and Earth-link status", tags=["sync"], roles=ALL_USERS)

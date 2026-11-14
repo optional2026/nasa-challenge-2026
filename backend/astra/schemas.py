@@ -32,6 +32,40 @@ class LoginOut(BaseModel):
     user: dict
 
 
+class ProfileSelectIn(Strict):
+    """Crew profile selection (simulation-only sign-in without credentials; see docs/SECURITY.md)."""
+    user_id: int = Field(ge=1)
+
+
+CrewRole = Literal["astronaut", "medical_officer"]
+USERNAME_PATTERN = r"^[a-z][a-z0-9._-]{1,31}$"
+
+
+class UserCreateIn(Strict):
+    """Administrator: register a crew account. Every crew account (astronaut or CMO) gets its own astronaut
+    health record."""
+    username: str = Field(pattern=USERNAME_PATTERN, description="lower-case login name, 2–32 characters")
+    display_name: str = Field(min_length=1, max_length=80)
+    role: CrewRole
+    name: str = Field(min_length=1, max_length=80, description="Astronaut's full name")
+    call_sign: Optional[str] = Field(default=None, max_length=24)
+    crew_role: Optional[str] = Field(default=None, max_length=60, description="Position, e.g. Flight Engineer")
+    mission_id: Optional[str] = Field(default=None, pattern=ID_PATTERN, description="Defaults to the current mission")
+    crew: str = Field(default="Prime Crew", min_length=1, max_length=40)
+    birth_year: Optional[int] = Field(default=None, ge=1940, le=2015)
+
+
+class UserUpdateIn(Strict):
+    """Administrator: edit a user. Only crew roles can be assigned; administrators cannot be created here."""
+    display_name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    role: Optional[CrewRole] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    call_sign: Optional[str] = Field(default=None, max_length=24)
+    crew_role: Optional[str] = Field(default=None, max_length=60)
+    mission_id: Optional[str] = Field(default=None, pattern=ID_PATTERN)
+    crew: Optional[str] = Field(default=None, min_length=1, max_length=40)
+
+
 # ------------------------------------------------------------------ observations
 class SymptomIn(Strict):
     code: str = Field(description="Symptom code from the ASTRA symptom vocabulary (GET /api/v1/symptoms)")
@@ -345,7 +379,17 @@ class SimulatorStartIn(Strict):
                       "musculoskeletal", "behavioral", "emergency"]
     speed: float = Field(default=6.0, ge=0.25, le=96, description="Simulated hours per real second")
     days: int = Field(default=10, ge=2, le=30)
-    seed: int = 42
+    seed: int = Field(default=42, ge=0, le=2**31 - 1)
+    astronaut_id: Optional[str] = Field(default=None, pattern=ID_PATTERN,
+                                        description="Astronaut to generate data for. Crew members: must be omitted or their own id. "
+                                                    "Administrator/flight surgeon: default AST-001")
+    whole_crew: bool = Field(default=False, description="Administrator/flight surgeon only: also generate nominal data for "
+                                                        "every other crew member (mission-operations simulation)")
+
+
+class SimulatorResetQuery(Strict):
+    astronaut_id: Optional[str] = Field(default=None, pattern=ID_PATTERN,
+                                        description="Administrator/flight surgeon: remove only this astronaut's generated data")
 
 
 class SimulatorSpeedIn(Strict):

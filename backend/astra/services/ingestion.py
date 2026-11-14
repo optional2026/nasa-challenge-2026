@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from .. import audit, config, db, units
 from ..bus import BUS
 from ..schemas import ObservationIn
-from ..security import MEDICAL_ROLES, Principal
+from ..security import MEDICAL_ROLES, Principal, can_view_astronaut
 from . import knowledge
 
 ORDINAL_TYPES = {"ordinal"}
@@ -98,6 +98,9 @@ def _authorize(conn, p: Principal, obs: ObservationIn, ind: dict, device: dict |
                 errs.append(f"{ind['code']} must be entered by authorized medical personnel")
             if obs.source_type == "clinician":
                 errs.append("source_type 'clinician' requires a medical role")
+        elif p.role == "medical_officer":
+            if ind["subject"] != "environment" and obs.astronaut_id and not can_view_astronaut(p, obs.astronaut_id):
+                errs.append("the Crew Medical Officer may only record measurements for astronauts in their crew")
     if errs:
         raise ItemError(errs)
 

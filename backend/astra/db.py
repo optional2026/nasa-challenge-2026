@@ -121,7 +121,15 @@ def init_db(conn: sqlite3.Connection) -> None:
     with _init_lock:
         sql = (Path(__file__).parent / "schema.sql").read_text()
         conn.executescript(sql)
+        _migrate(conn)
         conn.execute("INSERT OR REPLACE INTO schema_meta(key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,))
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Additive, idempotent column migrations for databases created by earlier versions."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(astronauts)").fetchall()}
+    if "crew" not in cols:
+        conn.execute("ALTER TABLE astronauts ADD COLUMN crew TEXT NOT NULL DEFAULT 'Prime Crew'")
 
 
 # ------------------------------------------------------------------ query helpers

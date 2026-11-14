@@ -28,7 +28,8 @@ def main():
         print("[astra] database reset")
     import uvicorn
     print(f"[astra] open http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port}  (API docs: /api/docs)")
-    uvicorn.run("astra.app:app", host=args.host, port=args.port, log_level="info", ws="auto")
+    uvicorn.run("astra.app:app", host=args.host, port=args.port, log_level="info", ws="auto",
+                proxy_headers=True, forwarded_allow_ips="127.0.0.1", server_header=False)
 
 
 if __name__ == "__main__":

@@ -94,7 +94,8 @@ CREATE INDEX IF NOT EXISTS ix_menv_mission ON mission_environments(mission_id, s
 CREATE TABLE IF NOT EXISTS astronauts (
   id TEXT PRIMARY KEY, mission_id TEXT NOT NULL REFERENCES missions(id), name TEXT NOT NULL,
   call_sign TEXT, crew_role TEXT, birth_year INTEGER, glucose_monitoring_enabled INTEGER NOT NULL DEFAULT 0,
-  is_synthetic INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+  is_synthetic INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+  crew TEXT NOT NULL DEFAULT 'Prime Crew'  -- crew within the mission; a CMO oversees astronauts of the same mission+crew
 );
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL,

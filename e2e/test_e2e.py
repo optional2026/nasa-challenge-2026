@@ -44,9 +44,13 @@ def login(browser, user, width=1440):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(B + "/")
-    page.fill("input[autocomplete=username]", user)
-    page.fill("input[type=password]", "astra-demo")
-    page.click("button.btn-primary")
+    page.wait_for_selector(".profile-card, .earth-account", timeout=15000)
+    if page.locator(f".profile-card[data-username='{user}']").count():
+        page.click(f".profile-card[data-username='{user}']")  # crew: profile selection, no password
+    else:
+        page.click(f".earth-account[data-username='{user}']")  # Earth-side accounts: password
+        page.fill("input[type=password]", "astra-demo")
+        page.click(".inline-signin button.btn-primary")
     page.wait_for_selector(".rail nav", timeout=15000)
     page.errors = errors
     return page
@@ -64,9 +68,9 @@ def run_scenario(name, days=10, speed=96):
 def test_login_rejects_bad_password(browser):
     page = browser.new_page()
     page.goto(B + "/")
-    page.fill("input[autocomplete=username]", "vega")
+    page.click(".earth-account[data-username='admin']")
     page.fill("input[type=password]", "nope")
-    page.click("button.btn-primary")
+    page.click(".inline-signin button.btn-primary")
     page.wait_for_selector(".error-box")
     assert "invalid username or password" in page.inner_text(".error-box")
     page.screenshot(path=str(SHOTS / "01_login.png"))
@@ -132,7 +136,7 @@ def test_emergency_workflow_end_to_end(browser):
     # verification checklist
     first = page.locator(".checklist li button").first
     first.click()
-    page.wait_for_function("document.querySelectorAll('.checklist li button:disabled').length >= 1", timeout=10000)
+    page.wait_for_selector('.checklist li button:disabled', timeout=10000)
     # escalate
     page.fill("textarea[placeholder^='What the crew member reports']", "E2E: SpO2 repeated on second oximeter, 90 %")
     page.click("text=Escalate to medical personnel")
@@ -213,4 +217,25 @@ def test_mobile_layout(browser):
     page.goto(B + "/#/overview")
     page.wait_for_selector(".lamp")
     page.screenshot(path=str(SHOTS / "10_mobile_overview.png"), full_page=False)
+    page.close()
+
+
+def test_demo_data_panel_generates_situation(browser):
+    page = login(browser, "mori")
+    page.goto(B + "/#/overview")
+    page.wait_for_selector(".lamp")
+    page.click("button.demo-btn")
+    page.wait_for_selector(".drawer:has-text('Random normal data')")
+    page.screenshot(path=str(SHOTS / "11_demo_data_panel.png"))
+    page.click(".drawer button:has-text('Trigger a situation')")
+    page.click(".situation:has-text('Possible illness')")
+    page.click(".drawer button:has-text('Generate 10 days')")
+    page.wait_for_selector(".demo-status:has-text('Done')", timeout=120000)
+    page.click(".drawer button:has-text('Medical response')")
+    try:
+        page.wait_for_selector("text=Temperature above personal baseline with illness symptoms", timeout=20000)
+    except Exception:
+        page.screenshot(path="/tmp/demo_fail.png", full_page=True)
+        raise
+    assert not page.errors
     page.close()

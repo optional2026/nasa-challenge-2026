@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import threading
 import time
 from datetime import timedelta
@@ -78,7 +79,7 @@ class HttpTransport:
         self.tokens: dict[str, str] = {}
         for username, _, role, ast in USERS:
             if role == "astronaut" or (ast and role == "medical_officer"):
-                r = requests.post(self.base + "/api/v1/auth/login", json={"username": username, "password": DEMO_PASSWORD}, timeout=30)
+                r = requests.post(self.base + "/api/v1/auth/login", json={"username": username, "password": os.environ.get("ASTRA_DEMO_PASSWORD", DEMO_PASSWORD)}, timeout=30)
                 r.raise_for_status()
                 self.tokens[ast] = r.json()["token"]
 
@@ -117,11 +118,16 @@ class SimulatorRunner:
         self.counts = {"telemetry_batches": 0, "observations": 0, "records": 0, "rejected": 0, "alerts": 0}
         self.last_error = None
         self.started_at = None
+        self.primary = None
+        self.seed = None
+        self.started_by = None  # actor name of whoever started the current run
+        self.crew_ids = None    # None = whole crew; otherwise the astronauts this run generates data for
         self._stop = threading.Event()
         self._pause = threading.Event()
 
     # ------------------------------------------------------------ control
-    def start(self, scenario: str, speed: float = 6.0, days: int = 10, seed: int = 42) -> dict:
+    def start(self, scenario: str, speed: float = 6.0, days: int = 10, seed: int = 42, astronaut_id: str | None = None,
+              crew_ids: set[str] | None = None, started_by: str | None = None) -> dict:
         with self.lock:
             if self.state in ("running", "paused"):
                 raise RuntimeError("simulation already running; stop it first")
@@ -136,8 +142,16 @@ class SimulatorRunner:
             self.sim_start = self.sim_end - timedelta(days=days)
             self.sim_clock = self.sim_start
             self.run_id = db.new_id("SIMRUN")
-            self.scenario, self.speed, self.days = scenario, float(speed), days
-            self.emissions = ScenarioBuilder(scenario, self.sim_start, days, seed, self.launch, self.run_id).build()
+            self.scenario, self.speed, self.days, self.seed = scenario, float(speed), days, seed
+            primary = astronaut_id or "AST-001"
+            if primary not in {a["id"] for a in ASTRONAUTS}:
+                raise ValueError(f"no demo-data profile for astronaut '{primary}' (demo data is available for the "
+                                 f"preinstalled crew only)")
+            self.primary = primary
+            self.crew_ids = set(crew_ids) if crew_ids is not None else None
+            self.started_by = started_by
+            self.emissions = ScenarioBuilder(scenario, self.sim_start, days, seed, self.launch, self.run_id,
+                                             primary=self.primary, crew_ids=self.crew_ids).build()
             self.idx = 0
             self.counts = {k: 0 for k in self.counts}
             self.last_error = None
@@ -188,39 +202,54 @@ class SimulatorRunner:
         self._publish()
         return self.status()
 
-    def reset(self, actor) -> dict:
+    def reset(self, actor, astronaut_ids: set[str] | None = None) -> dict:
+        """Delete simulator-generated records. With `astronaut_ids`, only those astronauts' generated health
+        records are removed, plus the shared synthetic cabin/environment data (which every run regenerates);
+        other crew members' generated health records are kept."""
         self.stop()
         from astra import audit
+        # scope filter appended to every per-astronaut statement; full reset when astronaut_ids is None
+        if astronaut_ids is None:
+            sc, sp = "", []
+        else:
+            ids = sorted(astronaut_ids)
+            sc, sp = f" AND (astronaut_id IS NULL OR astronaut_id IN ({','.join('?' * len(ids))}))", ids
         with db.session() as conn:
             with db.transaction(conn):
-                runs = [r["sim_run_id"] for r in db.all_(conn, "SELECT DISTINCT sim_run_id FROM observations WHERE sim_run_id IS NOT NULL")]
+                runs = [r["sim_run_id"] for r in db.all_(conn, "SELECT DISTINCT sim_run_id FROM observations WHERE sim_run_id IS NOT NULL" + sc, sp)]
                 deleted = {}
-                rep_ids = [r["id"] for r in db.all_(conn, "SELECT id FROM medical_reports WHERE sim_run_id IS NOT NULL")]
+                rep_ids = [r["id"] for r in db.all_(conn, "SELECT id FROM medical_reports WHERE sim_run_id IS NOT NULL" + sc, sp)]
                 if rep_ids:
                     q = ",".join("?" * len(rep_ids))
                     conn.execute(f"DELETE FROM sync_queue WHERE item_id IN ({q})", rep_ids)
                     conn.execute(f"DELETE FROM ground_inbox WHERE item_id IN ({q})", rep_ids)
                 # detach non-simulated rows that were later updated with simulated evidence
                 conn.execute("UPDATE alerts SET assessment_id=NULL WHERE sim_run_id IS NULL AND assessment_id IN "
-                             "(SELECT id FROM health_assessments WHERE sim_run_id IS NOT NULL)")
+                             "(SELECT id FROM health_assessments WHERE sim_run_id IS NOT NULL" + sc + ")", sp)
                 conn.execute("UPDATE alerts SET medical_event_id=NULL WHERE sim_run_id IS NULL AND medical_event_id IN "
-                             "(SELECT id FROM medical_events WHERE sim_run_id IS NOT NULL)")
-                conn.execute("UPDATE environment_events SET alert_id=NULL WHERE alert_id IN (SELECT id FROM alerts WHERE sim_run_id IS NOT NULL)")
+                             "(SELECT id FROM medical_events WHERE sim_run_id IS NOT NULL" + sc + ")", sp)
+                conn.execute("UPDATE environment_events SET alert_id=NULL WHERE alert_id IN (SELECT id FROM alerts WHERE sim_run_id IS NOT NULL"
+                             + sc + ")", sp)
                 for table in ("medical_reports", "environment_events", "alerts", "medical_events", "health_assessments",
                               "sleep_records", "mood_assessments", "exercise_records", "nutrition_records"):
                     if table == "alerts":
-                        conn.execute("DELETE FROM alert_observations WHERE alert_id IN (SELECT id FROM alerts WHERE sim_run_id IS NOT NULL)")
-                    cur = conn.execute(f"DELETE FROM {table} WHERE sim_run_id IS NOT NULL")
+                        conn.execute("DELETE FROM alert_observations WHERE alert_id IN (SELECT id FROM alerts WHERE sim_run_id IS NOT NULL"
+                                     + sc + ")", sp)
+                    tsc = "" if table == "environment_events" else sc  # cabin events have no astronaut
+                    cur = conn.execute(f"DELETE FROM {table} WHERE sim_run_id IS NOT NULL" + tsc, sp if tsc else [])
                     deleted[table] = cur.rowcount
                 # observations referenced by environment events / assessments were removed with cascades above
-                cur = conn.execute("DELETE FROM observations WHERE sim_run_id IS NOT NULL")
+                cur = conn.execute("DELETE FROM observations WHERE sim_run_id IS NOT NULL" + sc, sp)
                 deleted["observations"] = cur.rowcount
                 conn.execute("DELETE FROM telemetry_batches")
-                audit.record(conn, actor, "simulator.reset", "simulator", None, {"runs": runs, "deleted": deleted})
+                audit.record(conn, actor, "simulator.reset", "simulator", None,
+                             {"runs": runs, "deleted": deleted, "scope": sorted(astronaut_ids) if astronaut_ids is not None else "all"})
         with self.lock:
             self.state = "idle"
             self.scenario = None
             self.run_id = None
+            self.started_by = None
+            self.crew_ids = None
             self.emissions = []
             self.idx = 0
             self.sim_clock = None
@@ -327,6 +356,8 @@ class SimulatorRunner:
                     "mission_elapsed": met, "progress": round(self.idx / total, 3) if self.emissions else 0.0,
                     "counts": dict(self.counts), "last_error": self.last_error, "started_at": self.started_at,
                     "transport": getattr(self.transport, "name", None), "label": "SYNTHETIC",
+                    "primary_astronaut_id": self.primary, "seed": self.seed, "started_by": self.started_by,
+                    "crew_scope": sorted(self.crew_ids) if self.crew_ids is not None else "all",
                     "scenarios": SCENARIOS}
 
 

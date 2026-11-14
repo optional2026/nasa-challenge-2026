@@ -2,6 +2,8 @@
 knowledge base, daily records."""
 from __future__ import annotations
 
+import secrets
+
 from .. import audit, db, schemas, security
 from ..devices.adapters import ADAPTERS, AdapterError, adapter_for
 from ..security import MEDICAL_ROLES, can_view_private
@@ -10,7 +12,9 @@ from .common import default_mission, filter_private, map_errors, mission_day, sc
 from .framework import Api, ApiError, Ctx, forbidden, not_found
 
 ALL_USERS = ("astronaut", "medical_officer", "flight_surgeon", "admin")
-HEALTH_ROLES = ("astronaut", "medical_officer", "flight_surgeon")
+HEALTH_ROLES = ("astronaut", "medical_officer", "flight_surgeon")  # may create/act on health records
+# may READ health views; the Earth-based administrator gets read-only, privacy-filtered access (no clinical actions)
+VIEW_ROLES = HEALTH_ROLES + ("admin",)
 MED = MEDICAL_ROLES
 
 
@@ -28,14 +32,134 @@ def register(api: Api) -> None:
             audit.record(ctx.conn, f"user:{u['username']}", "auth.login", "user", str(u["id"]), {})
         return {"token": security.issue_token(u), "user": _user_public(u)}
 
+    @api.route("GET", "/auth/profiles", summary="Profiles shown on the sign-in screen", tags=["auth"], auth="none")
+    def profiles(ctx: Ctx):
+        """Active crew profiles (astronauts and the Crew Medical Officer) that can be selected without a password,
+        plus the Earth-side accounts that still sign in with a password. Contains no health data."""
+        crew = db.all_(ctx.conn, """SELECT u.id user_id, u.username, u.display_name, u.role, a.id astronaut_id, a.name,
+                                           a.call_sign, a.crew_role, a.crew, m.id mission_id, m.name mission_name
+                                    FROM users u JOIN astronauts a ON a.id=u.astronaut_id LEFT JOIN missions m ON m.id=a.mission_id
+                                    WHERE u.active=1 AND u.role IN ('astronaut','medical_officer')
+                                    ORDER BY CASE u.role WHEN 'medical_officer' THEN 1 ELSE 0 END, a.id""")
+        earth = db.all_(ctx.conn, "SELECT username, display_name, role FROM users WHERE active=1 AND role IN ('admin','flight_surgeon') "
+                                  "ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id")
+        return {"crew": crew, "earth": earth,
+                "notice": "Crew profile selection is a simplified simulation sign-in without credentials. It does not verify "
+                          "identity and is not suitable for an operational medical system."}
+
+    @api.route("POST", "/auth/select-profile", summary="Sign in by selecting a crew profile (simulation only, no password)",
+               tags=["auth"], body=schemas.ProfileSelectIn, response=schemas.LoginOut, auth="none")
+    def select_profile(ctx: Ctx):
+        """Only active astronaut and Crew Medical Officer accounts linked to an astronaut record can be selected.
+        Administrator and flight-surgeon accounts must use /auth/login with a password. Roles and permissions come
+        from the server-side user record, never from the client."""
+        u = db.one(ctx.conn, "SELECT * FROM users WHERE id=? AND active=1", (ctx.body.user_id,))
+        if not u or u["role"] not in security.PROFILE_SELECT_ROLES or not u["astronaut_id"]:
+            with db.transaction(ctx.conn):
+                audit.record(ctx.conn, f"anonymous:user-{ctx.body.user_id}", "auth.profile_select_denied", "user", str(ctx.body.user_id), {})
+            raise ApiError(403, "profile_selection_not_allowed", "this profile cannot be selected; Earth-side accounts sign in with a password")
+        with db.transaction(ctx.conn):
+            audit.record(ctx.conn, f"user:{u['username']}", "auth.profile_select", "user", str(u["id"]),
+                         {"note": "simulation sign-in without credentials"})
+        return {"token": security.issue_token(u), "user": _user_public(u)}
+
     @api.route("GET", "/auth/me", summary="Current user", tags=["auth"])
     def me(ctx: Ctx):
         u = db.one(ctx.conn, "SELECT * FROM users WHERE id=?", (ctx.principal.user_id,))
         return _user_public(u)
 
-    @api.route("GET", "/users", summary="List users (administrator)", tags=["auth"], roles=("admin",))
+    # ---------------------------------------------------------------- user management (administrator)
+    @api.route("GET", "/users", summary="List registered users (administrator)", tags=["users"], roles=("admin",))
     def users(ctx: Ctx):
-        return [_user_public(u) for u in db.all_(ctx.conn, "SELECT * FROM users ORDER BY id")]
+        return [_user_admin(u) for u in db.all_(ctx.conn, """SELECT u.*, a.name astronaut_name, a.call_sign, a.crew_role, a.crew,
+                                                                     a.mission_id, m.name mission_name
+                                                              FROM users u LEFT JOIN astronauts a ON a.id=u.astronaut_id
+                                                              LEFT JOIN missions m ON m.id=a.mission_id ORDER BY u.id""")]
+
+    @api.route("POST", "/users", summary="Register a crew account (administrator)", tags=["users"], body=schemas.UserCreateIn,
+               roles=("admin",), status_code=201)
+    def user_create(ctx: Ctx):
+        """Creates the astronaut health record (with the standard daily-routine schedule) and the linked account.
+        Only astronaut and Crew Medical Officer accounts can be registered; nobody can self-register."""
+        from ..seed import SCHEDULE
+        b = ctx.body
+        if db.one(ctx.conn, "SELECT id FROM users WHERE username=?", (b.username,)):
+            raise ApiError(409, "username_taken", f"username '{b.username}' is already registered")
+        mission_id = b.mission_id or default_mission(ctx.conn)["id"]
+        if not db.one(ctx.conn, "SELECT id FROM missions WHERE id=?", (mission_id,)):
+            raise not_found("mission", mission_id)
+        now = db.now_iso()
+        with db.transaction(ctx.conn):
+            ast_id = _next_astronaut_id(ctx.conn)
+            db.insert(ctx.conn, "astronauts", {"id": ast_id, "mission_id": mission_id, "name": b.name, "call_sign": b.call_sign,
+                                               "crew_role": b.crew_role or ("Crew Medical Officer" if b.role == "medical_officer" else "Astronaut"),
+                                               "birth_year": b.birth_year, "glucose_monitoring_enabled": 0, "is_synthetic": 0,
+                                               "created_at": now, "crew": b.crew})
+            for code, title, metrics, interval, required, clin in SCHEDULE:
+                db.insert(ctx.conn, "assessment_schedule", {"astronaut_id": ast_id, "task_code": code, "title": title,
+                                                            "metric_codes": db.dumps(metrics), "interval_hours": interval,
+                                                            "required": required, "clinician_directed": clin, "active": 1})
+            # Crew accounts sign in by profile selection; the stored password hash is random and never disclosed.
+            db.insert(ctx.conn, "users", {"username": b.username, "display_name": b.display_name,
+                                          "password_hash": security.hash_password(secrets.token_urlsafe(32)),
+                                          "role": b.role, "astronaut_id": ast_id, "active": 1, "created_at": now})
+            uid = db.one(ctx.conn, "SELECT id FROM users WHERE username=?", (b.username,))["id"]
+            audit.record(ctx.conn, ctx.principal, "user.create", "user", str(uid),
+                         {"username": b.username, "role": b.role, "astronaut_id": ast_id, "mission_id": mission_id, "crew": b.crew})
+        return _user_admin_by_id(ctx.conn, uid)
+
+    @api.route("PATCH", "/users/{user_id}", summary="Edit a user, role (crew roles only) and mission/crew assignment (administrator)",
+               tags=["users"], body=schemas.UserUpdateIn, roles=("admin",))
+    def user_update(ctx: Ctx):
+        u = _user_row(ctx)
+        b = ctx.body.model_dump(exclude_unset=True)
+        if u["role"] not in security.ADMIN_ASSIGNABLE_ROLES:
+            if set(b) - {"display_name"}:
+                raise forbidden("only the display name of Earth-side accounts can be edited here")
+        astro_changes = {k: b[k] for k in ("name", "call_sign", "crew_role", "mission_id", "crew") if k in b}
+        if "mission_id" in astro_changes and not db.one(ctx.conn, "SELECT id FROM missions WHERE id=?", (astro_changes["mission_id"],)):
+            raise not_found("mission", astro_changes["mission_id"])
+        if any(astro_changes.get(k) is None for k in ("name", "mission_id", "crew") if k in astro_changes):
+            raise ApiError(422, "invalid", "name, mission_id and crew cannot be empty")
+        user_changes = {k: b[k] for k in ("display_name", "role") if k in b and b[k] is not None}
+        with db.transaction(ctx.conn):
+            if user_changes:
+                db.update(ctx.conn, "users", "id", u["id"], user_changes)
+            if astro_changes and u["astronaut_id"]:
+                db.update(ctx.conn, "astronauts", "id", u["astronaut_id"], astro_changes)
+            audit.record(ctx.conn, ctx.principal, "user.update", "user", str(u["id"]),
+                         {"changes": b, "previous_role": u["role"]})
+        return _user_admin_by_id(ctx.conn, u["id"])
+
+    @api.route("POST", "/users/{user_id}/deactivate", summary="Deactivate an account (administrator)", tags=["users"], roles=("admin",))
+    def user_deactivate(ctx: Ctx):
+        """Signs the account out everywhere (tokens are re-checked on every request) and removes it from the
+        sign-in screen. The astronaut's health records are retained."""
+        u = _user_row(ctx)
+        if u["id"] == ctx.principal.user_id:
+            raise ApiError(409, "cannot_deactivate_self", "administrators cannot deactivate their own account")
+        with db.transaction(ctx.conn):
+            ctx.conn.execute("UPDATE users SET active=0 WHERE id=?", (u["id"],))
+            audit.record(ctx.conn, ctx.principal, "user.deactivate", "user", str(u["id"]), {"username": u["username"]})
+        return _user_admin_by_id(ctx.conn, u["id"])
+
+    @api.route("POST", "/users/{user_id}/activate", summary="Re-activate an account (administrator)", tags=["users"], roles=("admin",))
+    def user_activate(ctx: Ctx):
+        u = _user_row(ctx)
+        with db.transaction(ctx.conn):
+            ctx.conn.execute("UPDATE users SET active=1 WHERE id=?", (u["id"],))
+            audit.record(ctx.conn, ctx.principal, "user.activate", "user", str(u["id"]), {"username": u["username"]})
+        return _user_admin_by_id(ctx.conn, u["id"])
+
+    def _user_row(ctx: Ctx) -> dict:
+        try:
+            uid = int(ctx.path["user_id"])
+        except ValueError:
+            raise not_found("user", ctx.path["user_id"])
+        u = db.one(ctx.conn, "SELECT * FROM users WHERE id=?", (uid,))
+        if not u:
+            raise not_found("user", uid)
+        return u
 
     # ---------------------------------------------------------------- crew / mission
     @api.route("GET", "/missions", summary="Missions", tags=["mission"], roles=ALL_USERS)
@@ -54,13 +178,13 @@ def register(api: Api) -> None:
 
     @api.route("GET", "/astronauts", summary="Crew list (no health data)", tags=["crew"], roles=ALL_USERS)
     def astronauts(ctx: Ctx):
-        rows = db.all_(ctx.conn, "SELECT id, mission_id, name, call_sign, crew_role, is_synthetic FROM astronauts ORDER BY id")
+        rows = db.all_(ctx.conn, "SELECT id, mission_id, name, call_sign, crew_role, crew, is_synthetic FROM astronauts ORDER BY id")
         for r in rows:
             r["can_view_health"] = security.can_view_astronaut(ctx.principal, r["id"])
         return rows
 
     @api.route("GET", "/astronauts/{astronaut_id}", summary="Astronaut profile, schedule and medical history", tags=["crew"],
-               roles=HEALTH_ROLES)
+               roles=VIEW_ROLES)
     def astronaut_detail(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.path["astronaut_id"])
         a = db.one(ctx.conn, "SELECT * FROM astronauts WHERE id=?", (ast,))
@@ -218,7 +342,7 @@ def register(api: Api) -> None:
         return out
 
     @api.route("GET", "/measurements/latest", summary="Latest observation per metric", tags=["measurements"],
-               query=schemas.LatestQuery, roles=HEALTH_ROLES)
+               query=schemas.LatestQuery, roles=VIEW_ROLES)
     def latest(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         codes = ctx.query.metric_code
@@ -296,7 +420,7 @@ def register(api: Api) -> None:
     def sleep_create(ctx: Ctx):
         return _rec(records.create_sleep, ctx.body, ctx)
 
-    @api.route("GET", "/sleep", summary="Sleep records", tags=["records"], query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+    @api.route("GET", "/sleep", summary="Sleep records", tags=["records"], query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def sleep_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         return db.all_(ctx.conn, "SELECT * FROM sleep_records WHERE astronaut_id=? AND sleep_end>=? ORDER BY sleep_end DESC",
@@ -309,7 +433,7 @@ def register(api: Api) -> None:
         return _rec(records.create_mood, ctx.body, ctx)
 
     @api.route("GET", "/mood", summary="Private check-ins (astronaut and flight surgeon only)", tags=["records"],
-               query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+               query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def mood_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         if not can_view_private(ctx.principal, ast):
@@ -327,7 +451,7 @@ def register(api: Api) -> None:
         return _rec(records.create_exercise, ctx.body, ctx)
 
     @api.route("GET", "/exercise", summary="Exercise records and adherence", tags=["records"], query=schemas.AstronautQuery,
-               roles=HEALTH_ROLES)
+               roles=VIEW_ROLES)
     def exercise_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         rows = db.all_(ctx.conn, "SELECT * FROM exercise_records WHERE astronaut_id=? AND start_at>=? ORDER BY start_at DESC",
@@ -345,7 +469,7 @@ def register(api: Api) -> None:
         return _rec(records.create_nutrition, ctx.body, ctx)
 
     @api.route("GET", "/nutrition", summary="Nutrition records with daily water totals", tags=["records"],
-               query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+               query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def nutrition_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         rows = db.all_(ctx.conn, "SELECT * FROM nutrition_records WHERE astronaut_id=? AND recorded_at>=? ORDER BY recorded_at DESC",
@@ -375,13 +499,41 @@ def _user_public(u: dict) -> dict:
             "astronaut_id": u["astronaut_id"]}
 
 
+def _user_admin(u: dict) -> dict:
+    """User row for the administrator's user list (account and assignment only — no health data)."""
+    return _user_public(u) | {
+        "active": bool(u["active"]), "created_at": u["created_at"],
+        "sign_in": "profile" if u["role"] in security.PROFILE_SELECT_ROLES else "password",
+        "editable_role": u["role"] in security.ADMIN_ASSIGNABLE_ROLES,
+        "astronaut": {"id": u["astronaut_id"], "name": u.get("astronaut_name"), "call_sign": u.get("call_sign"),
+                      "crew_role": u.get("crew_role"), "crew": u.get("crew"), "mission_id": u.get("mission_id"),
+                      "mission_name": u.get("mission_name")} if u["astronaut_id"] else None,
+    }
+
+
+def _user_admin_by_id(conn, uid: int) -> dict:
+    return _user_admin(db.one(conn, """SELECT u.*, a.name astronaut_name, a.call_sign, a.crew_role, a.crew, a.mission_id,
+                                              m.name mission_name FROM users u LEFT JOIN astronauts a ON a.id=u.astronaut_id
+                                       LEFT JOIN missions m ON m.id=a.mission_id WHERE u.id=?""", (uid,)))
+
+
+def _next_astronaut_id(conn) -> str:
+    n = 0
+    for r in db.all_(conn, "SELECT id FROM astronauts WHERE id LIKE 'AST-%'"):
+        try:
+            n = max(n, int(r["id"][4:]))
+        except ValueError:
+            continue
+    return f"AST-{n + 1:03d}"
+
+
 def _mission(conn, m: dict) -> dict:
     m = dict(m)
     m["phases"] = db.all_(conn, "SELECT * FROM mission_environments WHERE mission_id=? ORDER BY start_utc", (m["id"],))
     now = db.now_iso()
     m["current_phase"] = next((p for p in reversed(m["phases"]) if p["start_utc"] <= now and (p["end_utc"] is None or p["end_utc"] > now)), None)
     m["mission_day"] = mission_day(m)
-    m["crew"] = db.all_(conn, "SELECT id, name, call_sign, crew_role FROM astronauts WHERE mission_id=?", (m["id"],))
+    m["crew"] = db.all_(conn, "SELECT id, name, call_sign, crew_role, crew FROM astronauts WHERE mission_id=?", (m["id"],))
     m["is_synthetic"] = bool(m["is_synthetic"])
     return m
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 
 from .. import audit, db
-from ..security import MEDICAL_ROLES, Principal
+from ..security import MEDICAL_ROLES, Principal, can_view_astronaut
 from . import ingestion
 
 
@@ -29,6 +29,8 @@ def resolve_astronaut(conn, p: Principal, astronaut_id: str | None) -> dict:
             raise PermissionError("administrators cannot create health records")
         if p.role == "astronaut" and p.astronaut_id != ast_id:
             raise PermissionError("astronauts may only create their own records")
+        if p.role == "medical_officer" and not can_view_astronaut(p, ast_id):
+            raise PermissionError("the Crew Medical Officer may only create records for astronauts in their crew")
     return a
 
 
@@ -209,6 +211,8 @@ def create_medication(conn, p: Principal, body) -> dict:
     a = db.one(conn, "SELECT id FROM astronauts WHERE id=?", (body.astronaut_id,))
     if not a:
         raise LookupError(body.astronaut_id)
+    if not can_view_astronaut(p, body.astronaut_id):
+        raise PermissionError("the Crew Medical Officer may only record medication for astronauts in their crew")
     rid = db.new_id("MED")
     with db.transaction(conn):
         db.insert(conn, "medication_records", {
@@ -223,6 +227,10 @@ def create_medication(conn, p: Principal, body) -> dict:
 def create_history(conn, p: Principal, body) -> dict:
     if p.role not in MEDICAL_ROLES:
         raise PermissionError("medical history entries are entered by medical personnel")
+    if not db.one(conn, "SELECT id FROM astronauts WHERE id=?", (body.astronaut_id,)):
+        raise LookupError(body.astronaut_id)
+    if not can_view_astronaut(p, body.astronaut_id):
+        raise PermissionError("the Crew Medical Officer may only add history for astronauts in their crew")
     rid = db.new_id("MH")
     with db.transaction(conn):
         db.insert(conn, "medical_history", {

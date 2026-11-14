@@ -78,7 +78,8 @@ export function AppProvider({ children }: { children: any }) {
       try { saved = sessionStorage.getItem("astra.astronaut"); } catch { /* ignore */ }
       const viewable = rows.filter((r) => r.can_view_health);
       const pick = user.astronaut_id && user.role === "astronaut" ? user.astronaut_id
-        : (saved && viewable.find((r) => r.id === saved) ? saved : viewable.find((r) => r.id === "AST-001")?.id || viewable[0]?.id || null);
+        : (saved && viewable.find((r) => r.id === saved) ? saved
+          : viewable.find((r) => r.id === user.astronaut_id)?.id || viewable.find((r) => r.id === "AST-001")?.id || viewable[0]?.id || null);
       setAstronautIdState(pick);
     }).catch(() => {});
   }, [user]);

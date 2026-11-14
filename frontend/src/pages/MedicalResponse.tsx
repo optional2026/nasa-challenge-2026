@@ -112,7 +112,8 @@ function AlertDrawer({ id, onClose, openEvent }: { id: string | null; onClose: (
             {(a.observation_ids || []).length ? a.observation_ids.map((o: string) => <button key={o} className="chip chip-plain linkish" onClick={() => setObs(o)}>{o}</button>) : <p className="muted">None linked.</p>}
           </div>
           {a.medical_event_id && <button className="btn" onClick={() => openEvent(a.medical_event_id)}>Open linked medical event</button>}
-          {a.resolution_status === "open" && !a.redacted && (
+          {user?.role === "admin" && <p className="muted small">Read-only: acknowledging and resolving alerts is reserved for the crew and medical personnel.</p>}
+          {a.resolution_status === "open" && !a.redacted && user?.role !== "admin" && (
             <>
               <Field label="Note (optional for acknowledgement, required to resolve)"><textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></Field>
               <ErrorBox error={act.error} />
@@ -143,6 +144,7 @@ function EventDetail({ id }: { id: string }) {
   const [report, setReport] = useState<any>(null);
   const act = useAsyncAction();
   const medical = user?.role === "medical_officer" || user?.role === "flight_surgeon";
+  const readOnly = user?.role === "admin";  // administrators are not medical personnel: view only
 
   useEffect(() => {
     if (!e) return;
@@ -209,7 +211,7 @@ function EventDetail({ id }: { id: string }) {
             <ul className="checklist">
               {checklist.map((c: any) => (
                 <li key={c.item}>
-                  <button disabled={c.checked || act.busy || e.state === "RESOLVED"} onClick={() => act.run(async () => {
+                  <button disabled={c.checked || act.busy || e.state === "RESOLVED" || readOnly} onClick={() => act.run(async () => {
                     await post(`/medical-events/${e.id}/actions`, { action_type: "checklist_item", description: c.item, data: { item: c.item, checked: true } });
                     reload();
                   })}>{c.checked ? <LuCircleCheck className="ok" aria-hidden /> : <LuCircle aria-hidden />} {c.item}</button>
@@ -224,6 +226,7 @@ function EventDetail({ id }: { id: string }) {
       <div className="grid-2">
         <Panel title="Actions">
           <ErrorBox error={act.error} />
+          {readOnly ? <div className="note">Read-only: escalation, state changes, notes and reports are reserved for the crew and medical personnel. The timeline shows every action taken.</div> : <>
           {e.state !== "RESOLVED" && (
             <>
               <Field label="Escalation note"><textarea rows={2} value={note} onChange={(x) => setNote(x.target.value)} placeholder="What the crew member reports, what was checked" /></Field>
@@ -251,8 +254,9 @@ function EventDetail({ id }: { id: string }) {
               if (!el.value.trim()) return;
               act.run(async () => { await post(`/medical-events/${e.id}/actions`, { action_type: "note", description: el.value.trim() }); el.value = ""; reload(); });
             }}>Add note</button></div></Field>
+          </>}
         </Panel>
-        <Panel title={<><LuFileText aria-hidden /> Medical reports</>} actions={
+        <Panel title={<><LuFileText aria-hidden /> Medical reports</>} actions={!readOnly &&
           <button className="btn btn-quiet" disabled={act.busy} onClick={() => act.run(async () => { const r = await post(`/medical-events/${e.id}/reports`, { queue_for_transmission: true }); setReport(r); reload(); })}>Generate report</button>}>
           {e.reports.length === 0 ? <Empty>No reports yet. Escalating creates one automatically.</Empty> : (
             <ul className="plain-list">

@@ -7,13 +7,13 @@ from datetime import timedelta
 
 from .. import audit, db, schemas
 from ..bus import BUS
-from ..security import MEDICAL_ROLES, can_view_private
+from ..security import MEDICAL_ROLES, can_see_private_exists, can_view_astronaut, can_view_private
 from ..services import alerts as alert_svc
 from ..services import (assessment_engine, baselines, environment, knowledge, medical_events, reports, sync,
                         trends)
 from .common import default_mission, filter_private, map_errors, mission_day, scoped_astronaut
 from .framework import Api, ApiError, Ctx, forbidden, not_found
-from .routes_data import ALL_USERS, HEALTH_ROLES, _latest
+from .routes_data import ALL_USERS, HEALTH_ROLES, VIEW_ROLES, _latest
 
 MED = MEDICAL_ROLES
 BODY_SYSTEMS = {
@@ -27,15 +27,22 @@ BODY_SYSTEMS = {
 }
 
 
+# Crew-overview grouping of the assessment engine's existing statuses (no new clinical thresholds).
+CATEGORY_FOR = {"NO_CONCERN_IDENTIFIED": "ok", "INFORMATION": "ok", "REASSESSMENT_RECOMMENDED": "attention",
+                "MEDICAL_REVIEW_RECOMMENDED": "medical_review", "URGENT_PROCEDURE": "medical_review",
+                "INSUFFICIENT_DATA": "no_data"}
+
+
 def _visible_alert_rows(ctx: Ctx, rows: list[dict]) -> list[dict]:
-    """Health alerts: astronaut sees own; medical roles see all (private redacted for CMO). Environment alerts: everyone."""
+    """Health alerts: astronaut sees own; CMO sees own crew (private redacted); flight surgeon sees all.
+    Environment alerts: everyone."""
     p = ctx.principal
     out = []
     for a in rows:
         if a["astronaut_id"] is None:
             out.append(a)
-        elif p.role in MED or (p.role == "astronaut" and p.astronaut_id == a["astronaut_id"]):
-            if a["is_private"] and not (can_view_private(p, a["astronaut_id"]) or p.role == "medical_officer"):
+        elif can_view_astronaut(p, a["astronaut_id"]):
+            if a["is_private"] and not can_see_private_exists(p, a["astronaut_id"]):
                 continue
             out.append(a)
     return out
@@ -51,7 +58,7 @@ def register(api: Api) -> None:
 
     # ---------------------------------------------------------------- baselines
     @api.route("GET", "/baselines", summary="Individual baselines (all versions)", tags=["baselines"],
-               query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+               query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def baseline_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         rows = baselines.list_for(ctx.conn, ast)
@@ -73,12 +80,19 @@ def register(api: Api) -> None:
                tags=["baselines"], body=schemas.BaselineApproveIn, roles=MED)
     @map_errors
     def baseline_approve(ctx: Ctx):
+        _baseline_scope(ctx)
         return baselines.approve(ctx.conn, ctx.principal, ctx.path["baseline_id"], ctx.body.ref_low, ctx.body.ref_high, ctx.body.notes)
 
     @api.route("POST", "/baselines/{baseline_id}/retire", summary="Retire a baseline version", tags=["baselines"], roles=MED)
     @map_errors
     def baseline_retire(ctx: Ctx):
+        _baseline_scope(ctx)
         return baselines.retire(ctx.conn, ctx.principal, ctx.path["baseline_id"])
+
+    def _baseline_scope(ctx: Ctx) -> None:
+        b = db.one(ctx.conn, "SELECT astronaut_id FROM health_baselines WHERE id=?", (ctx.path["baseline_id"],))
+        if b:  # unknown ids fall through to the service's not-found handling
+            scoped_astronaut(ctx, b["astronaut_id"])
 
     # ---------------------------------------------------------------- rules
     @api.route("GET", "/rules", summary="Centralized rule configuration (all versions)", tags=["rules"], roles=ALL_USERS)
@@ -112,7 +126,7 @@ def register(api: Api) -> None:
 
     # ---------------------------------------------------------------- assessments / trends
     @api.route("GET", "/assessments", summary="Assessment history", tags=["assessments"], query=schemas.ListQuery,
-               roles=HEALTH_ROLES)
+               roles=VIEW_ROLES)
     def assessment_list(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         sql = "SELECT * FROM health_assessments WHERE astronaut_id=?"
@@ -125,7 +139,7 @@ def register(api: Api) -> None:
         return {"items": [assessment_engine.decode(r) for r in rows], "hidden_private": hidden}
 
     @api.route("GET", "/assessments/{assessment_id}", summary="Assessment detail (findings, evidence, limitations)",
-               tags=["assessments"], roles=HEALTH_ROLES)
+               tags=["assessments"], roles=VIEW_ROLES)
     def assessment_detail(ctx: Ctx):
         r = db.one(ctx.conn, "SELECT * FROM health_assessments WHERE id=?", (ctx.path["assessment_id"],))
         if not r:
@@ -146,7 +160,7 @@ def register(api: Api) -> None:
         r = db.one(ctx.conn, "SELECT * FROM health_assessments WHERE id=?", (res["assessment_id"],))
         return assessment_engine.decode(r) | {"alerts_created": res["alerts_created"]}
 
-    @api.route("GET", "/trends", summary="Trend analysis for one indicator", tags=["assessments"], roles=HEALTH_ROLES)
+    @api.route("GET", "/trends", summary="Trend analysis for one indicator", tags=["assessments"], roles=VIEW_ROLES)
     def trend(ctx: Ctx):
         qp = ctx.request.query_params
         ast = scoped_astronaut(ctx, qp.get("astronaut_id"))
@@ -163,7 +177,7 @@ def register(api: Api) -> None:
 
     # ---------------------------------------------------------------- alerts
     @api.route("GET", "/alerts", summary="Alerts (filtered by role and privacy)", tags=["alerts"], query=schemas.ListQuery,
-               roles=HEALTH_ROLES)
+               roles=VIEW_ROLES)
     def alert_list(ctx: Ctx):
         q = ctx.query
         sql, params = "SELECT * FROM alerts WHERE 1=1", []
@@ -186,7 +200,7 @@ def register(api: Api) -> None:
         rows = _visible_alert_rows(ctx, rows)
         return [alert_svc.decode(ctx.conn, a, ctx.principal) for a in rows]
 
-    @api.route("GET", "/alerts/{alert_id}", summary="Alert detail", tags=["alerts"], roles=HEALTH_ROLES)
+    @api.route("GET", "/alerts/{alert_id}", summary="Alert detail", tags=["alerts"], roles=VIEW_ROLES)
     def alert_detail(ctx: Ctx):
         a = db.one(ctx.conn, "SELECT * FROM alerts WHERE id=?", (ctx.path["alert_id"],))
         if not a or not _visible_alert_rows(ctx, [a]):
@@ -221,13 +235,13 @@ def register(api: Api) -> None:
         p = ctx.principal
         if e["astronaut_id"] is None:
             return True, False
-        if p.role == "astronaut" and p.astronaut_id != e["astronaut_id"]:
+        if not can_view_astronaut(p, e["astronaut_id"]):
             return False, False
         if e["is_private"] and not can_view_private(p, e["astronaut_id"]):
             return p.role == "medical_officer", True
-        return p.role in MED or p.astronaut_id == e["astronaut_id"], False
+        return True, False
 
-    @api.route("GET", "/medical-events", summary="Medical events", tags=["medical-events"], query=schemas.ListQuery, roles=HEALTH_ROLES)
+    @api.route("GET", "/medical-events", summary="Medical events", tags=["medical-events"], query=schemas.ListQuery, roles=VIEW_ROLES)
     def event_list(ctx: Ctx):
         q = ctx.query
         sql, params = "SELECT * FROM medical_events WHERE 1=1", []
@@ -256,7 +270,7 @@ def register(api: Api) -> None:
         return out
 
     @api.route("GET", "/medical-events/{event_id}", summary="Medical event detail (timeline, protocol, checklist)",
-               tags=["medical-events"], roles=HEALTH_ROLES)
+               tags=["medical-events"], roles=VIEW_ROLES)
     def event_detail(ctx: Ctx):
         e = medical_events.get(ctx.conn, ctx.path["event_id"])
         if not e:
@@ -324,7 +338,7 @@ def register(api: Api) -> None:
             raise forbidden("not permitted for this medical event")
         return e
 
-    @api.route("GET", "/medical-reports", summary="Medical reports", tags=["medical-reports"], query=schemas.ListQuery, roles=HEALTH_ROLES)
+    @api.route("GET", "/medical-reports", summary="Medical reports", tags=["medical-reports"], query=schemas.ListQuery, roles=VIEW_ROLES)
     def report_list(ctx: Ctx):
         rows = db.all_(ctx.conn, "SELECT id, event_id, astronaut_id, created_at, created_by, sync_status, is_private, is_synthetic "
                                  "FROM medical_reports ORDER BY created_at DESC LIMIT ? OFFSET ?", (ctx.query.limit, ctx.query.offset))
@@ -336,7 +350,7 @@ def register(api: Api) -> None:
                 out.append(r)
         return out
 
-    @api.route("GET", "/medical-reports/{report_id}", summary="Medical report detail", tags=["medical-reports"], roles=HEALTH_ROLES)
+    @api.route("GET", "/medical-reports/{report_id}", summary="Medical report detail", tags=["medical-reports"], roles=VIEW_ROLES)
     def report_detail(ctx: Ctx):
         r = reports.get(ctx.conn, ctx.path["report_id"])
         if not r:
@@ -364,7 +378,7 @@ def register(api: Api) -> None:
 
     # ---------------------------------------------------------------- page aggregates
     @api.route("GET", "/overview", summary="Mission overview for one astronaut", tags=["views"], query=schemas.AstronautQuery,
-               roles=HEALTH_ROLES)
+               roles=VIEW_ROLES)
     def overview(ctx: Ctx):
         ast = scoped_astronaut(ctx, ctx.query.astronaut_id)
         conn = ctx.conn
@@ -434,8 +448,92 @@ def register(api: Api) -> None:
             "sync": {k: v for k, v in sync.status(conn).items() if k != "items"},
         }
 
+    @api.route("GET", "/crew/overview", summary="Crew-wide health status (CMO: own crew; administrator/flight surgeon: mission)",
+               tags=["views"], roles=MED + ("admin",))
+    def crew_overview(ctx: Ctx):
+        """One summary row per astronaut the caller may oversee: status, open alerts, latest vitals versus the
+        approved baseline, open medical events and overdue routine tasks. Private behavioral-health content is
+        never included (only a redacted count for the CMO)."""
+        from .routes_ops import routine_tasks
+        conn, p = ctx.conn, ctx.principal
+        m = default_mission(conn)
+        rows = db.all_(conn, """SELECT a.*, (SELECT u.active FROM users u WHERE u.astronaut_id=a.id ORDER BY u.active DESC LIMIT 1) user_active
+                                FROM astronauts a ORDER BY a.id""")
+        codes = ["heart_rate", "bp_systolic", "bp_diastolic", "spo2", "respiratory_rate", "body_temperature"]
+        crew = []
+        for a in rows:
+            if not can_view_astronaut(p, a["id"]):
+                continue
+            ast = a["id"]
+            alerts = _visible_alert_rows(ctx, db.all_(conn, "SELECT * FROM alerts WHERE resolution_status='open' AND astronaut_id=?", (ast,)))
+            by_sev: dict[str, int] = {}
+            for x in alerts:
+                by_sev[x["severity"]] = by_sev.get(x["severity"], 0) + 1
+            worst = max((alert_svc.SEVERITY_ORDER[x["severity"]] for x in alerts), default=0)
+            latest = {o["metric_code"]: o for o in _latest(ctx, ast, codes)}
+            vitals, missing = [], 0
+            for code in codes:
+                o = latest.get(code)
+                if not o or o["age_hours"] > 36:
+                    missing += 1
+                if not o:
+                    vitals.append({"metric_code": code, "name": knowledge.indicators()[code]["name"], "status": "missing"})
+                    continue
+                b = baselines.approved(conn, ast, code, baselines.context_key_for(code, {}))
+                vitals.append({"metric_code": code, "name": knowledge.indicators()[code]["name"], "value": o["value"],
+                               "unit": o["unit"], "measured_at": o["measured_at"], "age_hours": o["age_hours"],
+                               "status": "stale" if o["age_hours"] > 36 else "current",
+                               "z": round(trends.zscore(o["value"], b), 2) if b and isinstance(o["value"], (int, float)) else None})
+            latest_asm = db.one(conn, "SELECT status, created_at FROM health_assessments WHERE astronaut_id=? AND is_private=0 "
+                                      "ORDER BY created_at DESC LIMIT 1", (ast,))
+            status = assessment_engine.STATUS_FOR[worst]
+            if worst == 0 and (not latest_asm or latest_asm["status"] == "INSUFFICIENT_DATA" or missing >= 3):
+                status = "INSUFFICIENT_DATA"
+            events = [e for e in db.all_(conn, "SELECT * FROM medical_events WHERE astronaut_id=? AND state!='RESOLVED'", (ast,))
+                      if _event_visible(ctx, e)[0]]
+            tasks = routine_tasks(conn, ast)
+            last_obs = db.one(conn, "SELECT MAX(measured_at) m FROM observations WHERE astronaut_id=? AND is_private=0", (ast,))["m"]
+            last_update = max([x for x in (last_obs, latest_asm["created_at"] if latest_asm else None) if x], default=None)
+            crew.append({
+                "category": CATEGORY_FOR.get(status, "no_data"),
+                "has_data": last_obs is not None,
+                "last_measured_at": last_obs,
+                "last_update_at": last_update,
+                "astronaut": {k: a[k] for k in ("id", "name", "call_sign", "crew_role", "crew", "mission_id")}
+                             | {"is_synthetic": bool(a["is_synthetic"]), "account_active": bool(a["user_active"]) if a["user_active"] is not None else None,
+                                "is_self": ast == p.astronaut_id},
+                "current_status": status,
+                "latest_assessment": latest_asm,
+                "open_alerts": {"total": len(alerts), "by_severity": by_sev,
+                                "private_redacted": sum(1 for x in alerts if x["is_private"] and not can_view_private(p, ast))},
+                "open_medical_events": len(events),
+                "vitals": vitals,
+                "routine": {"overdue": sum(1 for t in tasks if t["required"] and t["status"] in ("overdue", "never_recorded")),
+                            "due": sum(1 for t in tasks if t["required"] and t["status"] == "due"),
+                            "total_required": sum(1 for t in tasks if t["required"])},
+            })
+        order = {"URGENT_PROCEDURE": 0, "MEDICAL_REVIEW_RECOMMENDED": 1, "REASSESSMENT_RECOMMENDED": 2, "INSUFFICIENT_DATA": 3,
+                 "INFORMATION": 4, "NO_CONCERN_IDENTIFIED": 5}
+        crew.sort(key=lambda c: (order.get(c["current_status"], 9), c["astronaut"]["id"]))
+        with db.transaction(conn):
+            audit.record(conn, p, "crew_overview.read", "astronaut", None, {"count": len(crew)})
+        summary = {"total": len(crew),
+                   "no_concern": sum(1 for c in crew if c["category"] == "ok"),
+                   "attention": sum(1 for c in crew if c["category"] == "attention"),
+                   "medical_review": sum(1 for c in crew if c["category"] == "medical_review"),
+                   "no_data": sum(1 for c in crew if c["category"] == "no_data"),
+                   "with_active_alerts": sum(1 for c in crew if c["open_alerts"]["total"] > 0),
+                   "last_update_at": max([c["last_update_at"] for c in crew if c["last_update_at"]], default=None)}
+        return {"mission": {"id": m["id"], "name": m["name"], "mission_day": mission_day(m)},
+                "scope": "crew" if p.role == "medical_officer" else "mission",
+                "crew_name": next((c["astronaut"]["crew"] for c in crew if c["astronaut"]["is_self"]), None),
+                "summary": summary,
+                "crew": crew,
+                "note": "Status comes from the existing assessment engine and open alerts; missing or stale data is shown as "
+                        "insufficient data, never as healthy. Private behavioral-health check-ins are not shown here."}
+
     @api.route("GET", "/body-systems/{system}", summary="Body-system view: risks, hazards, measurements, symptoms, assessments",
-               tags=["views"], query=schemas.AstronautQuery, roles=HEALTH_ROLES)
+               tags=["views"], query=schemas.AstronautQuery, roles=VIEW_ROLES)
     def body_system(ctx: Ctx):
         system = ctx.path["system"]
         if system not in BODY_SYSTEMS:

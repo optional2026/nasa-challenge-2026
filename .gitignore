@@ -5,3 +5,9 @@ frontend/node_modules
 .pytest_cache/
 *.sqlite3*
 test-results/
+
+# public demo runtime state
+tools/.public_demo/
+tools/bin/
+backend/data-public/
+backend/.venv/

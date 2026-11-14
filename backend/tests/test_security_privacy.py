@@ -21,9 +21,34 @@ def test_astronaut_cannot_view_other_crew_health(client, auth):
     assert client.get("/api/v1/overview", headers=h).status_code == 200
 
 
-def test_admin_has_no_medical_access(client, auth):
+def test_admin_has_read_only_non_clinical_access(client, auth):
+    """Earth-based administrator: may view crew health records (privacy-filtered) but takes no clinical actions."""
     h = auth("admin")
-    assert client.get("/api/v1/overview?astronaut_id=AST-001", headers=h).status_code == 403
+    for path in ("/overview?astronaut_id=AST-001", "/body-systems/cardiovascular?astronaut_id=AST-003",
+                 "/measurements/history?astronaut_id=AST-001", "/trends?astronaut_id=AST-001&metric_code=heart_rate",
+                 "/assessments?astronaut_id=AST-001", "/alerts?astronaut_id=AST-001", "/medical-events",
+                 "/routine?astronaut_id=AST-002", "/astronauts/AST-001"):
+        assert client.get("/api/v1" + path, headers=h).status_code == 200, path
+    # private behavioral-health content stays hidden
+    assert client.get("/api/v1/mood?astronaut_id=AST-001", headers=h).status_code == 403
+    assert all(not a["is_private"] for a in client.get("/api/v1/alerts", headers=h).json())
+    hist = client.get("/api/v1/measurements/history?astronaut_id=AST-001&metric_code=mood", headers=h).json()
+    assert hist["items"] == []
+    # no clinical or data-entry actions
+    when = t(1)
+    assert client.post("/api/v1/measurements/manual", headers=h, json={"astronaut_id": "AST-001", "measured_at": when,
+                       "items": [{"metric_code": "heart_rate", "value": 60, "unit": "bpm"}]}).status_code == 403
+    assert client.post("/api/v1/assessments", headers=h, json={"astronaut_id": "AST-001"}).status_code == 403
+    assert client.post("/api/v1/sleep", headers=h, json={"astronaut_id": "AST-001", "sleep_start": t(600), "sleep_end": t(120)}).status_code == 403
+    assert client.post("/api/v1/baselines", headers=h, json={"astronaut_id": "AST-001", "metric_code": "heart_rate",
+                       "period_start": t(9000), "period_end": t(10)}).status_code == 403
+    alerts = client.get("/api/v1/alerts?status=open", headers=h).json()
+    if alerts:
+        assert client.post(f"/api/v1/alerts/{alerts[0]['id']}/acknowledge", headers=h, json={}).status_code == 403
+    events = client.get("/api/v1/medical-events", headers=h).json()
+    if events:
+        assert client.post(f"/api/v1/medical-events/{events[0]['id']}/transition", headers=h,
+                           json={"to_state": "MONITORING", "reason": "x"}).status_code == 403
     assert client.get("/api/v1/users", headers=h).status_code == 200
     assert client.get("/api/v1/users", headers=auth("vega")).status_code == 403
 

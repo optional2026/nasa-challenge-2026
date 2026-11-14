@@ -6,12 +6,17 @@ import { ago, fmtTime, fmtValue, humanize } from "../lib/format";
 import { useApp, useData } from "../lib/store";
 
 function Simulator() {
-  const { toast } = useApp();
+  const { toast, user, astronautId, crew } = useApp();
   const { data: s, reload } = useData<any>("/simulator", ["simulator.status", "simulator.reset"]);
   const [scenario, setScenario] = useState("emergency");
   const [speed, setSpeed] = useState(12);
   const [days, setDays] = useState(10);
+  const earth = user?.role === "admin" || user?.role === "flight_surgeon";
+  const [wholeCrew, setWholeCrew] = useState(false);
   const act = useAsyncAction();
+  // Crew members generate data only for their own profile; mission control picks one astronaut or, explicitly, the whole crew.
+  const target = earth ? astronautId : user?.astronaut_id;
+  const targetName = crew.find((c) => c.id === target)?.name || target;
   if (!s) return <Loading />;
   const running = s.state === "running", paused = s.state === "paused";
   const call = (path: string, body?: any, msg?: string) => act.run(async () => { await post(`/simulator/${path}`, body); if (msg) toast(msg, "ok"); reload(); });
@@ -31,12 +36,15 @@ function Simulator() {
         <Field label="Days of mission data"><input type="number" min={2} max={30} value={days} onChange={(e) => setDays(Number(e.target.value))} disabled={running || paused} /></Field>
       </div>
       <p className="scenario-desc">{s.scenarios[running || paused ? s.scenario : scenario]}</p>
+      <p className="note small">Generates data for <b>{earth && wholeCrew ? "the whole crew" : targetName || "—"}</b>{earth && wholeCrew ? ` (${targetName} experiences the scenario, everyone else stays nominal)` : " only"} plus shared cabin readings.
+        {earth ? " Pick the astronaut in the header selector." : " Crew members can only generate data for their own profile."}</p>
+      {earth && <label className="check"><input type="checkbox" checked={wholeCrew} onChange={(e) => setWholeCrew(e.target.checked)} disabled={running || paused} /> Whole crew (mission control only)</label>}
       <div className="btn-row">
-        <button className="btn btn-primary" disabled={act.busy || running || paused} onClick={() => call("start", { scenario, speed, days }, `Started ${humanize(scenario)} scenario`)}><LuPlay aria-hidden /> Start</button>
+        <button className="btn btn-primary" disabled={act.busy || running || paused || !target} onClick={() => call("start", { scenario, speed, days, ...(earth ? { astronaut_id: target, whole_crew: wholeCrew } : {}) }, `Started ${humanize(scenario)} scenario`)}><LuPlay aria-hidden /> Start</button>
         <button className="btn" disabled={act.busy || !running} onClick={() => call("pause")}><LuPause aria-hidden /> Pause</button>
         <button className="btn" disabled={act.busy || !paused} onClick={() => call("resume")}><LuPlay aria-hidden /> Resume</button>
         <button className="btn" disabled={act.busy || !(running || paused)} onClick={() => call("stop", undefined, "Simulator stopped")}><LuSquare aria-hidden /> Stop</button>
-        <button className="btn btn-quiet" disabled={act.busy} title="Stops the simulator and deletes every record it generated" onClick={() => call("reset", undefined, "Simulated data removed")}><LuRotateCcw aria-hidden /> Reset simulated data</button>
+        <button className="btn btn-quiet" disabled={act.busy} title={earth ? "Stops the simulator and deletes every record it generated" : "Stops your run and deletes the demo data generated for your profile"} onClick={() => call("reset", undefined, "Simulated data removed")}><LuRotateCcw aria-hidden /> {earth ? "Reset all simulated data" : "Reset my simulated data"}</button>
       </div>
       <ErrorBox error={act.error} />
       <div className="sim-status">

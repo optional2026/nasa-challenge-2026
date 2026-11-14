@@ -16,5 +16,19 @@
 
 ## Quick facts
 * Project root: this folder. Backend `backend/`, frontend `frontend/` (prebuilt `frontend/dist/`), tests `backend/tests/` + `e2e/`.
-* Demo logins: vega, okafor (astronauts), mori (CMO), ramirez (flight surgeon), admin — password `astra-demo`.
+* Demo logins: crew profiles vega, okafor (astronauts), mori (CMO) — select profile, no password (simulation only);
+  Earth-side admin and ramirez (flight surgeon) — password `astra-demo`.
+* 2026-11-15 (roles & login update):
+  - Profile-selection sign-in for crew (`/auth/profiles`, `/auth/select-profile`); Earth-side accounts keep passwords.
+  - Admin user management (`/users`, PATCH `/users/{id}`, `/deactivate`, `/activate`); crew assignment column
+    `astronauts.crew` (only DB migration; additive, auto-applied in `db._migrate`).
+  - Roles: astronaut (own), CMO (own + same mission/crew), admin (read-only, privacy-filtered health views; `VIEW_ROLES`
+    in `api/routes_data.py`), flight surgeon retained (ground medical).
+  - `/crew/overview` (CMO, admin, FS) with summary counts and categories derived from the existing assessment statuses.
+  - Demo-data bug fixed: generator produces data for ONE astronaut (`ScenarioBuilder(crew_ids=...)`); crew members only
+    for themselves; whole crew only with `whole_crew` (admin/FS); scoped reset.
+  - Frontend: new Login, Crew overview, User management pages; role-based nav; "viewing records of" banner; read-only
+    Medical Response/Routine for admin; Hardware Link placeholder tab in Daily routine → Record.
+  - Tests: backend 64 passed (new: `test_roles_users.py`, `test_demo_isolation.py`); `tsc` 0 errors; `vite build` OK
+    (`frontend/dist` rebuilt). E2E (Playwright) helper updated but not run.
 * All stage reports: `checkpoint/history/STAGE_00.md` … `STAGE_10.md`. Status table: `docs/DEVELOPMENT_STATUS.md`.

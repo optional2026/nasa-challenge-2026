@@ -119,7 +119,7 @@ def seed_all(conn, now=None, rng_seed: int = 7) -> dict:
                                                         "required": 1, "clinician_directed": 1, "active": 1})
         for username, display, role, ast in USERS:
             db.insert(conn, "users", {"username": username, "display_name": display,
-                                      "password_hash": security.hash_password(DEMO_PASSWORD), "role": role,
+                                      "password_hash": security.hash_password(config.demo_password()), "role": role,
                                       "astronaut_id": ast, "active": 1, "created_at": t0})
         keys = {}
         for dev_id, dtype, model, ast, loc in DEVICE_PLAN:
@@ -223,3 +223,13 @@ def _premission_records(conn, a, start, rng):
                     "start_at": db.iso(day + timedelta(hours=slot)), "duration_min": 45.0, "intensity": "moderate",
                     "completion_status": "completed", "performance_notes": "pre-mission (SYNTHETIC)", "observation_id": None,
                     "source_type": "manual", "is_synthetic": 1, "sim_run_id": None, "created_at": db.now_iso()})
+
+
+def apply_demo_password(conn) -> None:
+    """Keep the synthetic demo accounts on the configured demo password (idempotent)."""
+    pw = config.demo_password()
+    with db.transaction(conn):
+        for username, *_ in USERS:
+            u = db.one(conn, "SELECT password_hash FROM users WHERE username=?", (username,))
+            if u and not security.verify_password(pw, u["password_hash"]):
+                conn.execute("UPDATE users SET password_hash=? WHERE username=?", (security.hash_password(pw), username))

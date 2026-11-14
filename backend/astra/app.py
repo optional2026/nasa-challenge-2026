@@ -16,6 +16,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from . import config, db, security, seed
+from .protection import ProtectionMiddleware
 from .api import routes_data, routes_health, routes_ops
 from .api.framework import Api
 from .bus import BUS
@@ -71,10 +72,10 @@ async def websocket_endpoint(ws: WebSocket):
         return
     with db.session() as conn:
         u = db.one(conn, "SELECT * FROM users WHERE id=? AND active=1", (int(claims["sub"]),))
-    if not u:
+        p = security.user_principal(conn, u) if u and u["role"] == claims.get("role") else None
+    if not p:
         await ws.close(code=4401)
         return
-    p = Principal(kind="user", name=u["username"], role=u["role"], user_id=u["id"], astronaut_id=u["astronaut_id"])
     await ws.accept()
     sub = BUS.subscribe(p, asyncio.get_running_loop())
     await ws.send_json({"type": "hello", "at": db.now_iso(), "payload": {"user": u["username"], "role": u["role"]}})
@@ -122,6 +123,7 @@ async def lifespan(app):
     with db.session() as conn:
         db.init_db(conn)
         info = seed.seed_all(conn)
+        seed.apply_demo_password(conn)
     if info.get("seeded"):
         print(f"[astra] seeded synthetic demo dataset: {info}")
     worker = None
@@ -137,6 +139,12 @@ async def lifespan(app):
         RUNNER.stop()
 
 
+async def public_config(request):
+    """Tells the login page whether this is the public demo server (no secrets)."""
+    return JSONResponse({"public_demo": config.public_demo(), "show_demo_password": not config.public_demo(),
+                         "data": "synthetic"})
+
+
 async def api_not_found(request):
     return JSONResponse({"error": {"code": "not_found", "message": f"no API route {request.method} {request.url.path}"}}, status_code=404)
 
@@ -145,10 +153,11 @@ def create_app() -> Starlette:
     routes = api.starlette_routes() + [
         Route("/api/openapi.json", openapi_json),
         Route("/api/docs", api_docs),
+        Route("/api/v1/public-config", public_config),
         WebSocketRoute("/ws", websocket_endpoint),
         Route("/api/{path:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
     ] + _frontend_routes()
-    return Starlette(routes=routes, lifespan=lifespan, middleware=[Middleware(GZipMiddleware, minimum_size=1024)])
+    return Starlette(routes=routes, lifespan=lifespan, middleware=[Middleware(ProtectionMiddleware), Middleware(GZipMiddleware, minimum_size=1024)])
 
 
 app = create_app()

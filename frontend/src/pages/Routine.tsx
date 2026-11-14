@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { LuLock } from "react-icons/lu";
+import { LuLock, LuPlug } from "react-icons/lu";
 import { Chip, Empty, ErrorBox, Field, Loading, Panel, Scale, Tabs, useAsyncAction } from "../components/ui";
 import { submitWithOutbox } from "../lib/api";
 import { ago, fmtTime, humanize } from "../lib/format";
 import { HEALTH_EVENTS, useApp, useData } from "../lib/store";
+import { MeasureGuide } from "../components/MeasureGuide";
 
 const nowLocal = () => { const d = new Date(); d.setSeconds(0, 0); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
 const toIso = (local: string) => new Date(local).toISOString();
@@ -54,7 +55,7 @@ function SymptomPicker({ value, onChange }: { value: string[]; onChange: (v: str
 const VITALS = [
   { id: "bp", title: "Blood pressure", device: "blood_pressure_monitor",
     fields: [{ code: "bp_systolic", label: "Systolic", units: ["mmHg"] }, { code: "bp_diastolic", label: "Diastolic", units: ["mmHg"] }],
-    contexts: ["resting", "after_exercise", "standing"], ctxKey: "activity", help: "Rest quietly for 5 minutes, cuff at heart level." },
+    contexts: ["resting", "after_exercise", "standing"], ctxKey: "activity", help: "Rest quietly first and stay still during the reading." },
   { id: "hr", title: "Heart rate", device: "heart_rate_wearable", fields: [{ code: "heart_rate", label: "Heart rate", units: ["bpm"] }],
     contexts: ["resting", "exercise", "post_exercise"], ctxKey: "activity", help: "Resting values are compared with your resting baseline." },
   { id: "spo2", title: "Oxygen saturation", device: "pulse_oximeter", fields: [{ code: "spo2", label: "SpO₂", units: ["%"] }],
@@ -98,6 +99,7 @@ function VitalForm({ cfg, devices, astronautId }: { cfg: any; devices: any[]; as
     <form className="form-card" onSubmit={submit} aria-label={cfg.title}>
       <h3>{cfg.title}</h3>
       <p className="muted small">{cfg.help}</p>
+      <MeasureGuide id={cfg.id} />
       <div className="form-grid">
         {cfg.fields.map((f: any) => (
           <Field key={f.code} label={f.label}>
@@ -188,6 +190,7 @@ function SleepForm({ astronautId }: { astronautId: string }) {
         restfulness: rest, fatigue_after_waking: fatigue, scheduled_opportunity_min: opp ? Number(opp) * 60 : null }));
     }); }}>
       <h3>Sleep</h3>
+      <MeasureGuide id="sleep" />
       <div className="form-grid">
         <Field label="Fell asleep"><input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required /></Field>
         <Field label="Woke up"><input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required /></Field>
@@ -222,6 +225,7 @@ function CheckinForm({ astronautId, self }: { astronautId: string; self: boolean
     }); }}>
       <h3><LuLock aria-hidden /> Private daily check-in</h3>
       <p className="muted small">Only you and the flight surgeon can see your answers. Skip anything you prefer not to answer — skipped answers are recorded as missing, never as "fine". These are self-reported indicators, not a diagnosis.</p>
+      <MeasureGuide id="mood" />
       <Field label="How is your mood today?"><Scale labels={SCALES.mood} value={v.mood} onChange={set("mood")} name="Mood" /></Field>
       <Field label="How stressed do you feel?"><Scale labels={SCALES.stress} value={v.stress} onChange={set("stress")} name="Stress" /></Field>
       <Field label="How tired are you?"><Scale labels={SCALES.fatigue} value={v.fatigue} onChange={set("fatigue")} name="Fatigue" /></Field>
@@ -252,6 +256,7 @@ function ExerciseForm({ astronautId }: { astronautId: string }) {
         performance_test: f.test && f.testVal ? { test: f.test, value: Number(f.testVal), unit: f.testUnit } : null }));
     }); }}>
       <h3>Exercise session</h3>
+      <MeasureGuide id="exercise" />
       <div className="form-grid">
         <Field label="Exercise"><input value={f.exercise_type} onChange={set("exercise_type")} required /></Field>
         <Field label="Type"><select value={f.category} onChange={set("category")}>{["aerobic", "resistive", "flexibility", "balance", "other"].map((c) => <option key={c} value={c}>{humanize(c)}</option>)}</select></Field>
@@ -289,6 +294,7 @@ function NutritionForm({ astronautId }: { astronautId: string }) {
         appetite, digestion_symptoms: dig || null }));
     }); }}>
       <h3>Food and water</h3>
+      <MeasureGuide id="nutrition" />
       <div className="form-grid">
         <Field label="Entry"><select value={type} onChange={(e) => setType(e.target.value)}><option value="water">Drink</option><option value="meal">Meal</option><option value="snack">Snack</option></select></Field>
         <Field label="Time"><input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
@@ -301,6 +307,20 @@ function NutritionForm({ astronautId }: { astronautId: string }) {
       <ErrorBox error={act.error} /><Result res={res} />
       <button className="btn btn-primary" disabled={act.busy}>Save entry</button>
     </form>
+  );
+}
+
+/** Placeholder only: no device integration exists and nothing is shown as connected. */
+function HardwareLinkPlaceholder() {
+  return (
+    <section className="hardware-soon" aria-labelledby="hw-title">
+      <LuPlug className="hardware-soon-icon" aria-hidden />
+      <div>
+        <h3 id="hw-title">Hardware Integration — Coming Soon</h3>
+        <p>Connect supported medical devices and wearable sensors to automatically transfer measurements into ASTRA. Hardware
+          integration is not currently available in this demonstration.</p>
+      </div>
+    </section>
   );
 }
 
@@ -352,9 +372,16 @@ export default function Routine() {
           </table></div>
         )}
       </Panel>
+      {user?.role === "admin" ? (
+        <Panel title="Record">
+          <div className="note">Read-only: administrators can review the routine but cannot record measurements for crew members.</div>
+        </Panel>
+      ) : (
       <Panel title="Record">
-        <Tabs tabs={[["vitals", "Vital signs"], ["symptoms", "Symptoms"], ["sleep", "Sleep"], ["checkin", "Private check-in"], ["exercise", "Exercise"], ["nutrition", "Food and water"]]} value={tab} onChange={setTab} />
-        {!self && user?.role !== "astronaut" && <div className="note">You are recording on behalf of {ast?.name}. Entries are attributed to you in the audit log.</div>}
+        <Tabs tabs={[["vitals", "Vital signs"], ["symptoms", "Symptoms"], ["sleep", "Sleep"], ["checkin", "Private check-in"], ["exercise", "Exercise"], ["nutrition", "Food and water"],
+          ["hardware", <span className="tab-icon"><LuPlug aria-hidden /> Hardware link</span>]]} value={tab} onChange={setTab} />
+        {!self && user?.role !== "astronaut" && tab !== "hardware" && <div className="note">You are recording on behalf of {ast?.name}. Entries are attributed to you in the audit log.</div>}
+        {tab === "hardware" && <HardwareLinkPlaceholder />}
         <div className="forms">
           {tab === "vitals" && VITALS.filter((v) => v.id !== "glu" || glucose).map((v) => <VitalForm key={v.id} cfg={v} devices={data?.devices || []} astronautId={astronautId} />)}
           {tab === "vitals" && !glucose && <div className="note">Blood glucose monitoring is clinician-directed and not enabled for this astronaut.</div>}
@@ -365,6 +392,7 @@ export default function Routine() {
           {tab === "nutrition" && <NutritionForm astronautId={astronautId} />}
         </div>
       </Panel>
+      )}
     </div>
   );
 }
