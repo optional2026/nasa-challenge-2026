@@ -131,8 +131,11 @@ def register(api: Api) -> None:
         if ctx.principal.kind != "device" or ctx.principal.device_id != dev["id"]:
             raise forbidden("device readings must be authenticated with this device's key")
         rid = ctx.body.reading_id or db.new_id("RD")
+        if dev["astronaut_id"] and ctx.body.astronaut_id and ctx.body.astronaut_id != dev["astronaut_id"]:
+            raise forbidden("device is assigned to a different astronaut")
+        dev_view = dict(dev, astronaut_id=dev["astronaut_id"] or ctx.body.astronaut_id)
         try:
-            obs = adapter_for(dev["device_type"]).to_observations(ctx.body.reading, device=dev, measured_at=ctx.body.measured_at,
+            obs = adapter_for(dev["device_type"]).to_observations(ctx.body.reading, device=dev_view, measured_at=ctx.body.measured_at,
                                                                    reading_id=rid)
         except AdapterError as e:
             raise ApiError(422, "adapter_error", str(e))

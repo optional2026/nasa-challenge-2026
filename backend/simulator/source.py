@@ -200,6 +200,12 @@ class SimulatorRunner:
                     q = ",".join("?" * len(rep_ids))
                     conn.execute(f"DELETE FROM sync_queue WHERE item_id IN ({q})", rep_ids)
                     conn.execute(f"DELETE FROM ground_inbox WHERE item_id IN ({q})", rep_ids)
+                # detach non-simulated rows that were later updated with simulated evidence
+                conn.execute("UPDATE alerts SET assessment_id=NULL WHERE sim_run_id IS NULL AND assessment_id IN "
+                             "(SELECT id FROM health_assessments WHERE sim_run_id IS NOT NULL)")
+                conn.execute("UPDATE alerts SET medical_event_id=NULL WHERE sim_run_id IS NULL AND medical_event_id IN "
+                             "(SELECT id FROM medical_events WHERE sim_run_id IS NOT NULL)")
+                conn.execute("UPDATE environment_events SET alert_id=NULL WHERE alert_id IN (SELECT id FROM alerts WHERE sim_run_id IS NOT NULL)")
                 for table in ("medical_reports", "environment_events", "alerts", "medical_events", "health_assessments",
                               "sleep_records", "mood_assessments", "exercise_records", "nutrition_records"):
                     if table == "alerts":

@@ -332,6 +332,7 @@ class DeviceReadingIn(Strict):
     reading: dict[str, Any]
     measured_at: str
     reading_id: Optional[str] = Field(default=None, pattern=ID_PATTERN)
+    astronaut_id: Optional[str] = Field(default=None, description="Required for shared devices (e.g. med-bay BP cuff) that are not assigned to one astronaut")
 
     @field_validator("measured_at")
     @classmethod

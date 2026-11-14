@@ -108,7 +108,7 @@ def _normalize_symptom_items(obs: ObservationIn, obs_id: str) -> list[dict]:
         items.append({
             "observation_id": f"{obs_id}-S{n}", "astronaut_id": obs.astronaut_id, "mission_id": obs.mission_id,
             "metric_code": "symptom", "value": s.code, "unit": "category",
-            "measured_at": obs.measured_at, "source_type": obs.source_type, "device_id": None,
+            "measured_at": obs.measured_at, "source_type": "manual", "device_id": None,  # symptoms are self-reported
             "quality": "unverified", "location": None, "notes": s.notes,
             "context": {"severity": s.severity, "onset_at": s.onset_at, "related_observation_id": obs_id},
             "synthetic": obs.synthetic,
