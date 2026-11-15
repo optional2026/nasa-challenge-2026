@@ -1,0 +1,12 @@
+ASTRA public two-sided demo is LIVE
+  Crew Side  : https://immigration-tells-holidays-passing.trycloudflare.com
+               vega, okafor (astronauts), mori (CMO)  -  password: optionalwillwin
+  Earth Side : https://manuals-documentary-marsh-pipeline.trycloudflare.com
+               admin (administrator), ramirez (flight surgeon)  -  password: AstraJudges2026
+  Synthetic data only. Runs while this PC is on. Details: tools\.public_crew_earth\info.txt
+
+Notes
+  - Cloudflare Quick Tunnel links work only while the host PC is running start-public-astra.bat.
+  - If the public demo is restarted, new links are generated and the demo data is reset.
+  - These are shared demonstration passwords for synthetic data only.
+  - How to use ASTRA: USER_GUIDE.md (section 8 has a 5-minute demonstration script).
