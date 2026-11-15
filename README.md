@@ -13,7 +13,8 @@ ground flight surgeons.
 > thresholds. Procedures labelled *Synthetic demo* contain no treatment instructions.
 
 > **New here?** Read the **[User Guide](USER_GUIDE.md)**: starting ASTRA, accounts, what each role does, the
-> Earth-link demonstration and the public Cloudflare demo.
+> Earth-link demonstration and the public Cloudflare demo. A 7-slide version is in
+> [presentation/ASTRA_User_Guide.pptx](presentation/ASTRA_User_Guide.pptx).
 
 ## Quick start (Windows)
 
