@@ -12,6 +12,9 @@ ground flight surgeons.
 > the demo is **SYNTHETIC**. Rules labelled *Demonstration only* are synthetic statistical rules, not clinical
 > thresholds. Procedures labelled *Synthetic demo* contain no treatment instructions.
 
+> **New here?** Read the **[User Guide](USER_GUIDE.md)**: starting ASTRA, accounts, what each role does, the
+> Earth-link demonstration and the public Cloudflare demo.
+
 ## Quick start (Windows)
 
 Requirements: Python 3.10+ (python.org — tick "Add python.exe to PATH"). Node.js is **not** required to run ASTRA — the
