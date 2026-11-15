@@ -7,6 +7,20 @@ Challenge 2026: **not a medical device and not an autonomous doctor**. All crew 
 This guide covers starting ASTRA, signing in, the screens each role uses, the Earth-link demonstration and the
 public (internet) demo.
 
+## Live demo: try it in your browser
+
+The public two-sided demo is **live**. No installation is needed; open the links in any browser.
+
+| Side | Link | Accounts | Password |
+|---|---|---|---|
+| **Crew Side** (onboard) | https://immigration-tells-holidays-passing.trycloudflare.com | `vega`, `okafor` (astronauts), `mori` (CMO) | `optionalwillwin` |
+| **Earth Side** (ground) | https://manuals-documentary-marsh-pipeline.trycloudflare.com | `admin` (administrator), `ramirez` (flight surgeon) | `AstraJudges2026` |
+
+* Synthetic data only.
+* The links work while the host PC runs the public demo. If it is restarted, new links are generated and the
+  data is reset; the current links are always in [usage_links.txt](usage_links.txt).
+* Want a quick tour? Follow the 5-minute script in [section 8](#8-demonstration-script-about-5-minutes).
+
 ---
 
 ## 1. Two sides of ASTRA
