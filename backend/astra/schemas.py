@@ -32,11 +32,6 @@ class LoginOut(BaseModel):
     user: dict
 
 
-class ProfileSelectIn(Strict):
-    """Crew profile selection (simulation-only sign-in without credentials; see docs/SECURITY.md)."""
-    user_id: int = Field(ge=1)
-
-
 CrewRole = Literal["astronaut", "medical_officer"]
 USERNAME_PATTERN = r"^[a-z][a-z0-9._-]{1,31}$"
 
@@ -47,6 +42,8 @@ class UserCreateIn(Strict):
     username: str = Field(pattern=USERNAME_PATTERN, description="lower-case login name, 2–32 characters")
     display_name: str = Field(min_length=1, max_length=80)
     role: CrewRole
+    password: str = Field(min_length=1, max_length=256, description="Initial password (validated by the server "
+                          "password policy, stored only as a scrypt hash, never returned)")
     name: str = Field(min_length=1, max_length=80, description="Astronaut's full name")
     call_sign: Optional[str] = Field(default=None, max_length=24)
     crew_role: Optional[str] = Field(default=None, max_length=60, description="Position, e.g. Flight Engineer")
@@ -55,8 +52,14 @@ class UserCreateIn(Strict):
     birth_year: Optional[int] = Field(default=None, ge=1940, le=2015)
 
 
+class PasswordResetIn(Strict):
+    """Administrator: set a new password for a crew account. Existing passwords can never be retrieved."""
+    password: str = Field(min_length=1, max_length=256)
+
+
 class UserUpdateIn(Strict):
-    """Administrator: edit a user. Only crew roles can be assigned; administrators cannot be created here."""
+    """Administrator: edit a user. Only crew roles can be assigned; administrators cannot be created here.
+    For a flight-surgeon account only display_name and mission_id (the assigned mission) can be changed."""
     display_name: Optional[str] = Field(default=None, min_length=1, max_length=80)
     role: Optional[CrewRole] = None
     name: Optional[str] = Field(default=None, min_length=1, max_length=80)

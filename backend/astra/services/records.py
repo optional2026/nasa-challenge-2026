@@ -31,12 +31,14 @@ def resolve_astronaut(conn, p: Principal, astronaut_id: str | None) -> dict:
             raise PermissionError("astronauts may only create their own records")
         if p.role == "medical_officer" and not can_view_astronaut(p, ast_id):
             raise PermissionError("the Crew Medical Officer may only create records for astronauts in their crew")
+        if p.role == "flight_surgeon" and not can_view_astronaut(p, ast_id):
+            raise PermissionError("the flight surgeon may only create records for astronauts on their assigned mission")
     return a
 
 
 def _rid(prefix: str, client_id: str | None, ast_id: str) -> tuple[str, bool]:
     if client_id:
-        return f"{prefix}-" + hashlib.sha256(f"{ast_id}:{client_id}".encode()).hexdigest()[:12].upper(), True
+        return f"{prefix}-" + hashlib.sha256(f"{ast_id}:{client_id}".encode()).hexdigest()[:20].upper(), True
     return db.new_id(prefix), False
 
 

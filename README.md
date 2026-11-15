@@ -20,29 +20,45 @@ built web interface is included in `frontend/dist`. It is only needed to rebuild
 
 1. Double-click **`start-astra.bat`** (first run creates a virtual environment and installs 5 small packages).
 2. Open **http://127.0.0.1:8000** in your browser.
-3. **Crew:** click a profile card to enter — no password. **Mission Control (Earth):** pick the account and enter the
-   password (`astra-demo` locally).
+3. Sign in with a **username and password** (every role, crew and Earth-side).
 
-| Account | Role | Sign-in | Sees / does |
+| Account | Role | Password (demo) | Sees / does |
 |---|---|---|---|
-| Elena Vega (`vega`) | Astronaut (Commander) | Profile selection | Own dashboard, measurements, routine, history, analytics, alerts, demo data (own profile) |
-| Amara Okafor (`okafor`) | Astronaut (Flight Engineer) | Profile selection | Own data only |
-| Kenji Mori (`mori`) | Crew Medical Officer | Profile selection | Everything an astronaut has for self, plus **Crew overview**, full records of astronauts in the same crew (private check-ins redacted) and the Medical Response Center |
-| Mission Systems Administrator (`admin`) | Earth-based administrator | Password | **Crew overview**, **User management** (register/edit/assign/deactivate crew accounts), **read-only** health records of every astronaut (privacy-filtered, no clinical actions), mission operations, audit |
-| Lucia Ramirez (`ramirez`) | Ground flight surgeon (pre-existing) | Password | Whole mission incl. private check-ins; approves baselines and rules |
+| Elena Vega (`vega`) | Astronaut (Commander) | `optionalwillwin` | My dashboard, record a measurement, daily routine (sleep, mood/stress check-in, exercise, nutrition/hydration), health records, analytics and history, alerts & medical response — **own record only** |
+| Amara Okafor (`okafor`) | Astronaut (Flight Engineer) | `optionalwillwin` | Same as above, own record only |
+| Kenji Mori (`mori`) | Crew Medical Officer (aboard) | `optionalwillwin` | Everything an astronaut has for their own record, plus **Crew overview**, records of astronauts in the **same mission and crew** (other members' private check-ins redacted), crew alerts/medical events and response coordination |
+| Mission Systems Administrator (`admin`) | Earth-based administrator | `astra-demo` | **No personal health pages.** Mission overview, Crew overview, **Astronaut records** (select any astronaut — read-only, privacy-filtered: summary, body systems & measurements, trends & history, logs & assessments), Alerts & medical events (read-only), Mission ops & sync, **Users & crew assignment** |
+| Lucia Ramirez (`ramirez`) | Ground flight surgeon (Earth) | `astra-demo` | **No personal health pages.** Mission overview and Crew overview of the **assigned mission only**, Astronaut medical records (incl. private check-ins), Medical response & reports (escalations from the onboard CMO), medical operations (baselines, rules, audit) |
 
-**Crew overview** (CMO, administrator): summary tiles (total, no concern, needs attention, needs medical review,
-insufficient/no data, with active alerts; click to filter) and one card per astronaut. Click a name or *Open dashboard* to
-open that astronaut's own dashboard/records; a banner shows whose records you are viewing.
+> ⚠ **Shared demonstration passwords.** `optionalwillwin` (the three pre-created crew accounts) and `astra-demo`
+> (Earth-side demo accounts) are public demo passwords and **must be changed before any real deployment**:
+> set `ASTRA_CREW_DEMO_PASSWORD` / `ASTRA_DEMO_PASSWORD` before the database is first created, and/or reset each crew
+> account in *Users & crew assignment → Reset password*. Passwords are stored only as salted scrypt hashes; they are
+> never sent to the browser, never returned by the API and cannot be retrieved by an administrator.
+
+**Accounts and passwords**
+* The administrator registers new astronaut / CMO accounts in *Users & crew assignment* and must set an initial
+  password (server policy: 8–128 characters, at least 4 different characters, not the username, not a common password,
+  no leading/trailing spaces). Nobody can self-register or change their own role.
+* *Reset password* replaces a crew account's password (the old one is never shown). Earth-side account passwords are
+  managed by server configuration.
+* The flight surgeon's assigned mission is set by the administrator (*Edit* on the flight-surgeon row). A flight
+  surgeon without an assigned mission can see no astronaut records. An administrator account without a mission
+  assignment oversees all missions.
+* Upgrading an existing database: on first start the three pre-created crew accounts are updated **in place** to the
+  shared crew demo password and an unassigned flight surgeon is assigned to the demo mission (one-time migration,
+  recorded in `schema_meta`; later starts never overwrite crew passwords). Crew accounts created earlier through
+  user management had random, unknown passwords — reset them in *Users & crew assignment*.
+
+**Crew overview** (CMO, administrator, flight surgeon): summary tiles (total, no concern, needs attention, needs
+medical review, insufficient/no data, with active alerts; click to filter) and one card per astronaut. Crew members
+open that astronaut's dashboard; Earth-side roles open *Astronaut records*.
 
 **Demo data** (header button, crew members): generates synthetic data for **your own profile only**. Mission control can
 generate for one selected astronaut — or, explicitly, the whole crew — in *Mission operations → Mission simulator*.
 
 **Hardware Link**: *Daily routine → Record → Hardware link* shows a "Hardware Integration — Coming Soon" placeholder
 (no device integration exists).
-
-> ⚠ Crew profile selection is a **simulation-only** sign-in without credentials. It does not verify identity and is
-> not suitable for an operational medical system. Permissions are still enforced by the server. See `docs/SECURITY.md`.
 
 4. As a crew member, press **Demo data** in the header; or as the administrator go to **Mission operations → Mission
    simulator**, pick a scenario (e.g. *Emergency*) and press **Start**.
@@ -55,6 +71,24 @@ python -m venv .venv && .venv\Scripts\activate      # macOS/Linux: source .venv/
 pip install -r requirements.txt
 python run.py                 # --reset-db to start from a fresh synthetic dataset
 ```
+
+## Crew Side and Earth Side (offline synchronization)
+
+ASTRA runs as **two deployments of the same codebase**. The **Crew Side** onboard server (astronauts and the CMO)
+keeps working with no connection to Earth. The **Earth Side** server (administrators and ground flight surgeons)
+receives astronaut records through a signed, acknowledged, idempotent store-and-forward synchronization API.
+Double-click **`start-astra-crew-earth.bat`** (or run `./start-astra-crew-earth.sh`). This starts the onboard server
+at http://127.0.0.1:8000 and the Earth server at http://127.0.0.1:8100, each with its own database. Sign in as
+`mori` to use **Simulate Earth Connection Loss / Restore Earth Connection**. The architecture, demonstration script,
+configuration and limitations are in **[docs/CREW_EARTH_SYNC.md](docs/CREW_EARTH_SYNC.md)**.
+`start-astra.bat` still starts the earlier single-server prototype (all roles on one server).
+
+**Public demo for judges:** **`start-public-astra.bat`** publishes both sides through two Cloudflare Quick Tunnels
+and prints two `https://…trycloudflare.com` links. Stop with `stop-public-astra.bat`. See *Public demonstration*
+in [docs/CREW_EARTH_SYNC.md](docs/CREW_EARTH_SYNC.md).
+
+**Light and dark themes:** use the **Light / Dark / System** switch at the bottom of the sidebar (also top-right on
+the sign-in page). The choice is remembered per browser. *System* follows the operating-system setting.
 
 ## What is in the box
 
@@ -84,7 +118,7 @@ npm run build      # production bundle into frontend/dist (served by the backend
 ## Tests
 
 ```bash
-cd backend && pip install -r requirements-dev.txt && python -m pytest -q        # 46 tests
+cd backend && pip install -r requirements-dev.txt && python -m pytest -q        # 75 tests
 python run.py --reset-db                                                       # then, in a second terminal:
 playwright install chromium && python -m pytest ../e2e -q                      # 9 browser tests
 ```

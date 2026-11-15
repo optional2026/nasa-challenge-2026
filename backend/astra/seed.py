@@ -13,7 +13,6 @@ from .devices.adapters import ADAPTERS
 from .security import SYSTEM, Principal
 from .services import baselines, ingestion, knowledge
 
-DEMO_PASSWORD = "astra-demo"
 MISSION_ID = "MSN-ARES-T1"
 
 ASTRONAUTS = [
@@ -31,6 +30,8 @@ ASTRONAUTS = [
            "workload": (2.8, 0.5), "conn": (4.2, 0.4), "pvt": (255, 11), "water": (2200, 150), "grip": (35, 1.0)}},
 ]
 
+# username, display name, role, astronaut record. The first three are the pre-created crew accounts
+# (shared demo password: config.crew_demo_password()); the Earth-side accounts use config.demo_password().
 USERS = [
     ("vega", "Cmdr. Elena Vega", "astronaut", "AST-001"),
     ("okafor", "Amara Okafor (Flight Engineer)", "astronaut", "AST-003"),
@@ -38,6 +39,12 @@ USERS = [
     ("ramirez", "Dr. Lucia Ramirez (Ground Flight Surgeon)", "flight_surgeon", None),
     ("admin", "Mission Systems Administrator", "admin", None),
 ]
+CREW_DEMO_USERNAMES = ("vega", "okafor", "mori")
+CREW_PASSWORD_MIGRATION = "crew_password_auth_v1"
+
+
+def _seed_password(username: str) -> str:
+    return config.crew_demo_password() if username in CREW_DEMO_USERNAMES else config.demo_password()
 
 BASELINE_METRICS = [("heart_rate", "resting"), ("bp_systolic", ""), ("bp_diastolic", ""), ("spo2", ""),
                     ("respiratory_rate", ""), ("body_temperature", ""), ("blood_glucose", ""), ("sleep_duration", ""),
@@ -119,8 +126,12 @@ def seed_all(conn, now=None, rng_seed: int = 7) -> dict:
                                                         "required": 1, "clinician_directed": 1, "active": 1})
         for username, display, role, ast in USERS:
             db.insert(conn, "users", {"username": username, "display_name": display,
-                                      "password_hash": security.hash_password(config.demo_password()), "role": role,
-                                      "astronaut_id": ast, "active": 1, "created_at": t0})
+                                      "password_hash": security.hash_password(_seed_password(username)), "role": role,
+                                      "astronaut_id": ast, "active": 1, "created_at": t0,
+                                      # the ground flight surgeon is assigned to this mission; the administrator is not
+                                      # restricted to one mission
+                                      "mission_id": MISSION_ID if role == "flight_surgeon" else None})
+        conn.execute("INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)", (CREW_PASSWORD_MIGRATION, t0))
         keys = {}
         for dev_id, dtype, model, ast, loc in DEVICE_PLAN:
             key = security.new_device_key()
@@ -226,10 +237,30 @@ def _premission_records(conn, a, start, rng):
 
 
 def apply_demo_password(conn) -> None:
-    """Keep the synthetic demo accounts on the configured demo password (idempotent)."""
+    """Startup password maintenance for the synthetic demo accounts.
+
+    * Earth-side demo accounts (admin, ramirez) are kept on the configured Earth demo password (existing behaviour,
+      idempotent; used by the public-demo scripts to override it).
+    * ONE-TIME migration (recorded in schema_meta) for databases created before crew password sign-in: the three
+      pre-created crew accounts (vega, okafor, mori) get the shared crew demo password. Existing rows are updated
+      by username — no account is ever inserted here, so no duplicates can be created. After the migration has run,
+      crew passwords are never touched again at startup (administrator resets stay in effect).
+    * Flight-surgeon accounts without a mission assignment (older databases) are assigned to the demo mission once.
+    """
     pw = config.demo_password()
     with db.transaction(conn):
-        for username, *_ in USERS:
+        for username, _display, role, _ast in USERS:
+            if role not in security.EARTH_ROLES:
+                continue
             u = db.one(conn, "SELECT password_hash FROM users WHERE username=?", (username,))
             if u and not security.verify_password(pw, u["password_hash"]):
                 conn.execute("UPDATE users SET password_hash=? WHERE username=?", (security.hash_password(pw), username))
+        done = db.one(conn, "SELECT value FROM schema_meta WHERE key=?", (CREW_PASSWORD_MIGRATION,))
+        if not done:
+            crew_hash_pw = config.crew_demo_password()
+            for username in CREW_DEMO_USERNAMES:
+                conn.execute("UPDATE users SET password_hash=? WHERE username=? AND role IN ('astronaut','medical_officer')",
+                             (security.hash_password(crew_hash_pw), username))
+            if db.one(conn, "SELECT id FROM missions WHERE id=?", (MISSION_ID,)):
+                conn.execute("UPDATE users SET mission_id=? WHERE role='flight_surgeon' AND mission_id IS NULL", (MISSION_ID,))
+            conn.execute("INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)", (CREW_PASSWORD_MIGRATION, db.now_iso()))

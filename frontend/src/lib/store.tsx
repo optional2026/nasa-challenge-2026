@@ -20,6 +20,9 @@ interface Ctx {
   toasts: { id: number; msg: string; tone: string }[];
   navigate: (page: string, params?: Record<string, string>) => void;
   route: { page: string; params: Record<string, string> };
+  /** Deployment side of the server this page was loaded from: "onboard" (Crew Side), "earth" or "standalone". */
+  side: string;
+  sideLabel: string;
 }
 
 const AppCtx = createContext<Ctx>(null as any);
@@ -45,6 +48,8 @@ export function AppProvider({ children }: { children: any }) {
   const [toasts, setToasts] = useState<{ id: number; msg: string; tone: string }[]>([]);
   const [route, setRoute] = useState(parseHash());
   const wsRef = useRef<WebSocket | null>(null);
+  const [cfg, setCfg] = useState<{ deployment: string; side_label: string }>({ deployment: "standalone", side_label: "" });
+  useEffect(() => { get<any>("/public-config").then(setCfg).catch(() => {}); }, []);
 
   const toast = useCallback((msg: string, tone = "info") => {
     const id = Date.now() + Math.random();
@@ -115,6 +120,7 @@ export function AppProvider({ children }: { children: any }) {
         if (ev.type === "alert.created" && ev.payload?.severity === "URGENT") toast(`Urgent: ${ev.payload.title || "open the Medical Response Center"}`, "urgent");
         if (ev.type === "environment.warning") toast(`Environment: ${ev.payload.description || ev.payload.event_type}`, "attn");
         if (ev.type === "notification") toast(ev.payload.title || "Medical personnel notified", "review");
+        if (ev.type === "ground_annotation.received") toast("New follow-up note from the ground medical team", "review");
       };
       ws.onclose = () => {
         setConnected(false);
@@ -131,7 +137,7 @@ export function AppProvider({ children }: { children: any }) {
 
   return (
     <AppCtx.Provider value={{ user, setUser, astronautId, setAstronautId, crew, connected, serverReachable, events, version,
-      outboxCount, toast, toasts, navigate, route }}>
+      outboxCount, toast, toasts, navigate, route, side: cfg.deployment || "standalone", sideLabel: cfg.side_label || "" }}>
       {children}
     </AppCtx.Provider>
   );

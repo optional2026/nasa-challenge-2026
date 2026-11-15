@@ -20,6 +20,9 @@ from collections import defaultdict, deque
 from . import config
 
 MAX_BODY_BYTES = 512 * 1024
+# The signed server-to-server replication endpoint carries batches of up to a few hundred records; it has its own
+# limit (checked again in routes_replication) and is authenticated by HMAC, not by a user session.
+LARGE_BODY_PATHS = {"/api/v1/replication/batch": 20 * 1024 * 1024}
 
 SECURITY_HEADERS = [
     (b"x-content-type-options", b"nosniff"),
@@ -112,9 +115,10 @@ class ProtectionMiddleware:
             return await self.app(scope, receive, send)
         method, path = scope["method"], scope["path"]
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        max_body = LARGE_BODY_PATHS.get(path, MAX_BODY_BYTES) if method == "POST" else MAX_BODY_BYTES
         try:
-            if int(headers.get("content-length", "0") or 0) > MAX_BODY_BYTES:
-                return await _send_json(send, 413, "payload_too_large", f"request body larger than {MAX_BODY_BYTES} bytes")
+            if int(headers.get("content-length", "0") or 0) > max_body:
+                return await _send_json(send, 413, "payload_too_large", f"request body larger than {max_body} bytes")
         except ValueError:
             return await _send_json(send, 400, "bad_request", "invalid Content-Length")
 
@@ -147,7 +151,7 @@ class ProtectionMiddleware:
             msg = await receive()
             if msg["type"] == "http.request":
                 received += len(msg.get("body", b""))
-                if received > MAX_BODY_BYTES:
+                if received > max_body:
                     raise ValueError("request body too large")
             return msg
 

@@ -84,7 +84,7 @@ Write-Host ""
 Write-Host "==================================================================" -ForegroundColor Cyan
 Write-Host "  ASTRA public demo $(if ($ok) {'is LIVE'} else {'started (self-test failed - see above)'})"
 Write-Host "  URL:       $Url" -ForegroundColor Green
-Write-Host "  Crew:      pick a profile (no password)"
+Write-Host "  Crew (vega, okafor, mori): crew demo password (README)"
 Write-Host "  Mission Control (admin / ramirez) password: $Password" -ForegroundColor Green
 Write-Host "  Runs while this PC is on. Stop: tools\stop_public_demo.bat"
 Write-Host "==================================================================" -ForegroundColor Cyan

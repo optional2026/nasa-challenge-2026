@@ -1,6 +1,7 @@
 // Crew overview for the Crew Medical Officer (own crew) and the ground flight surgeon (whole mission).
 // The server decides which astronauts are included; private check-in content is never shown here.
 import { useState } from "react";
+import { EarthFreshness, EarthLinkPanel, GroundNotes } from "../components/EarthLink";
 import { Avatar, Chip, Empty, ErrorBox, Loading, Panel, Severity, StatusPill } from "../components/ui";
 import { ago, fmtTime, fmtValue, unit } from "../lib/format";
 import { HEALTH_EVENTS, useApp, useData } from "../lib/store";
@@ -16,11 +17,13 @@ const CATEGORY: Record<string, { label: string; tone: string }> = {
 };
 
 export default function CrewOverview() {
-  const { setAstronautId, navigate, user } = useApp();
+  const { setAstronautId, navigate, user, side } = useApp();
   const { data, error, reload } = useData<any>("/crew/overview", HEALTH_EVENTS);
   const [filter, setFilter] = useState<string>("all");
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   if (!data) return <Loading label="Loading crew overview" />;
+  // Earth-based roles open the astronaut's records (App renders these route ids inside "Astronaut records").
+  const earth = user?.role === "admin" || user?.role === "flight_surgeon";
   const open = (id: string, page = "overview") => { setAstronautId(id); navigate(page); };
   const s = data.summary;
   const tiles: [string, string, number, string][] = [
@@ -38,6 +41,8 @@ export default function CrewOverview() {
           {" · "}last update {s.last_update_at ? ago(s.last_update_at) : "never"}
           {user?.role === "admin" && <> · <b>read-only</b> (administrator)</>}</p>
       </div>
+      {side === "onboard" && user?.role === "medical_officer" && <EarthLinkPanel compact />}
+      {side === "earth" && <EarthFreshness />}
       <div className="crew-summary" role="group" aria-label="Crew status summary (click to filter)">
         {tiles.map(([k, label, n, tone]) => (
           <button key={k} className={`crew-tile tone-${tone} ${filter === k ? "on" : ""}`} aria-pressed={filter === k} onClick={() => setFilter(filter === k && k !== "all" ? "all" : k)}>
@@ -52,7 +57,7 @@ export default function CrewOverview() {
             const cat = CATEGORY[c.category] || CATEGORY.no_data;
             return (
               <Panel key={a.id} className={`crew-card cat-${c.category}`} title={
-                <button className="crew-card-h linkish-plain" onClick={() => open(a.id)} title={`Open ${a.name}'s dashboard`}>
+                <button className="crew-card-h linkish-plain" onClick={() => open(a.id)} title={`Open ${a.name}'s ${earth ? "records" : "dashboard"}`}>
                   <Avatar name={a.name} seed={a.id} size={36} />
                   <span><strong>{a.name}</strong>{a.is_self && <Chip>you</Chip>}<small className="muted">{a.crew_role}{a.call_sign ? ` · ${a.call_sign}` : ""} · {a.crew}</small></span>
                 </button>}
@@ -78,7 +83,7 @@ export default function CrewOverview() {
                   <span className="muted">Last assessment: {c.latest_assessment ? ago(c.latest_assessment.created_at) : "none"}</span>
                 </div>
                 <div className="btn-row">
-                  <button className="btn" onClick={() => open(a.id)}>Open dashboard</button>
+                  <button className="btn" onClick={() => open(a.id)}>{earth ? "Open records" : "Open dashboard"}</button>
                   <button className="btn btn-quiet" onClick={() => open(a.id, "analytics")}>Analytics</button>
                   {c.open_alerts.total > 0 && <button className="btn btn-quiet" onClick={() => open(a.id, "response")}>Medical response</button>}
                 </div>
@@ -87,6 +92,7 @@ export default function CrewOverview() {
           })}
         </div>
       )}
+      {side === "onboard" && user?.role === "medical_officer" && <GroundNotes />}
       <p className="muted small">{data.note}</p>
     </div>
   );

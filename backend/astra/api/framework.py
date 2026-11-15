@@ -19,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-from .. import db, security
+from .. import db, security, sides
 from ..security import Principal
 
 
@@ -83,6 +83,8 @@ def _authenticate(request: Request, conn, mode: str) -> Principal:
             raise ApiError(401, "invalid_token", "user no longer active")
         if user["role"] != claims.get("role"):
             raise ApiError(401, "invalid_token", "role changed; sign in again")
+        if not sides.role_allowed(user["role"]):
+            raise ApiError(403, "wrong_side", sides.wrong_side_message(user["role"]))
         return security.user_principal(conn, user)
     dev_key = request.headers.get("x-device-key")
     if dev_key and mode == "user_or_device":
@@ -143,6 +145,9 @@ class Api:
                     principal = _authenticate(request, conn, spec.auth)
                     if spec.roles and principal.role not in spec.roles and principal.kind != "system":
                         raise forbidden(f"requires one of roles: {', '.join(spec.roles)}")
+                    problem = sides.route_problem(spec.method, spec.path)
+                    if problem:
+                        raise ApiError(*problem)
                     body = None
                     if spec.body is not None:
                         try:

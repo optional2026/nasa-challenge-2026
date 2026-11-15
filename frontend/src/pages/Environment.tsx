@@ -5,7 +5,7 @@ import { Chip, Empty, ErrorBox, Loading, Panel, Synthetic, Tabs } from "../compo
 import { ago, fmtTime, fmtValue, humanize, unit } from "../lib/format";
 import { useApp, useData } from "../lib/store";
 
-const LOC_COLOR: Record<string, string> = { "HAB-A": "#9DB4FF", LAB: "#5FD3C2" };
+const LOC_COLOR: Record<string, string> = { "HAB-A": "var(--series-1)", LAB: "var(--series-2)" };
 const ENV_EVENTS = ["observations.created", "environment.warning", "environment.event_ended", "simulator.reset"];
 
 function bySeries(points: any[], label = (l: string) => l) {

@@ -31,7 +31,8 @@ from typing import Any
 
 from astra import db
 from astra.bus import BUS
-from astra.seed import ASTRONAUTS, DEMO_PASSWORD, USERS, device_keys_path
+from astra import config
+from astra.seed import ASTRONAUTS, USERS, device_keys_path
 
 from .scenarios import SCENARIOS, Emission, ScenarioBuilder
 
@@ -79,7 +80,7 @@ class HttpTransport:
         self.tokens: dict[str, str] = {}
         for username, _, role, ast in USERS:
             if role == "astronaut" or (ast and role == "medical_officer"):
-                r = requests.post(self.base + "/api/v1/auth/login", json={"username": username, "password": os.environ.get("ASTRA_DEMO_PASSWORD", DEMO_PASSWORD)}, timeout=30)
+                r = requests.post(self.base + "/api/v1/auth/login", json={"username": username, "password": config.crew_demo_password()}, timeout=30)
                 r.raise_for_status()
                 self.tokens[ast] = r.json()["token"]
 

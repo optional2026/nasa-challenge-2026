@@ -100,7 +100,8 @@ CREATE TABLE IF NOT EXISTS astronauts (
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL,
   password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('astronaut','medical_officer','flight_surgeon','admin')),
-  astronaut_id TEXT REFERENCES astronauts(id), active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL
+  astronaut_id TEXT REFERENCES astronauts(id), active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
+  mission_id TEXT REFERENCES missions(id)  -- Earth-based accounts only: assigned mission (crew accounts use astronauts.mission_id)
 );
 CREATE TABLE IF NOT EXISTS devices (
   id TEXT PRIMARY KEY, device_type TEXT NOT NULL, adapter TEXT NOT NULL, model TEXT, serial TEXT,
@@ -304,3 +305,47 @@ CREATE TABLE IF NOT EXISTS ground_inbox (
 CREATE TABLE IF NOT EXISTS telemetry_batches (
   idempotency_key TEXT PRIMARY KEY, response TEXT NOT NULL, created_at TEXT NOT NULL
 );
+
+-- ---------------------------------------------------------------- Crew Side <-> Earth Side replication
+-- ONBOARD: persistent outbound queue. One row per replicated record, written by SQLite triggers in the SAME
+-- transaction as the record itself (installed only on the onboard deployment). `version` increases on every local
+-- change; a record is SYNCED only when Earth acknowledged exactly the version that was sent (`sent_version`).
+CREATE TABLE IF NOT EXISTS replication_outbox (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  record_type TEXT NOT NULL, record_id TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('PENDING','SENDING','SYNCED','FAILED','REJECTED','DISCARDED')),
+  version INTEGER NOT NULL DEFAULT 1, sent_version INTEGER, change_seq INTEGER NOT NULL,
+  enqueued_at TEXT NOT NULL, changed_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0, last_attempt_at TEXT, next_attempt_at TEXT,
+  synced_at TEXT, synced_hash TEXT, last_error TEXT,
+  UNIQUE (record_type, record_id)
+);
+CREATE INDEX IF NOT EXISTS ix_repl_out_status ON replication_outbox(status, change_seq);
+CREATE INDEX IF NOT EXISTS ix_repl_out_change ON replication_outbox(change_seq);
+-- Key/value state of the replication link (both sides): simulated outage flag, last success, cursors …
+CREATE TABLE IF NOT EXISTS replication_state (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL);
+-- EARTH: index of every record received from a spacecraft (identity, origin, revision, integrity hash and the
+-- Earth arrival time — kept separate from the record's own original timestamps).
+CREATE TABLE IF NOT EXISTS replicated_records (
+  record_type TEXT NOT NULL, record_id TEXT NOT NULL, origin_node TEXT NOT NULL,
+  astronaut_id TEXT, mission_id TEXT, revision INTEGER NOT NULL, payload_hash TEXT NOT NULL,
+  first_received_at TEXT NOT NULL, last_received_at TEXT NOT NULL, batch_id TEXT,
+  PRIMARY KEY (record_type, record_id)
+);
+CREATE INDEX IF NOT EXISTS ix_repl_rec_ast ON replicated_records(astronaut_id, first_received_at);
+-- Batches received / rejected (Earth) — operational log, complements audit_log.
+CREATE TABLE IF NOT EXISTS replication_batches (
+  batch_id TEXT PRIMARY KEY, origin_node TEXT NOT NULL, received_at TEXT NOT NULL, records INTEGER NOT NULL,
+  stored INTEGER NOT NULL, duplicates INTEGER NOT NULL, rejected INTEGER NOT NULL, deferred INTEGER NOT NULL
+);
+-- Ground follow-up notes: written by Earth-side medical personnel as SEPARATE, attributable records (onboard
+-- observations are never edited from Earth). Created on Earth, delivered to the onboard server by the sync worker.
+CREATE TABLE IF NOT EXISTS ground_annotations (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, earth_seq INTEGER,
+  mission_id TEXT NOT NULL, astronaut_id TEXT, subject_type TEXT, subject_id TEXT,
+  kind TEXT NOT NULL CHECK (kind IN ('follow_up','note','request')), text TEXT NOT NULL,
+  author TEXT NOT NULL, author_role TEXT NOT NULL, created_at TEXT NOT NULL,
+  delivered_at TEXT,      -- Earth: when the onboard server confirmed receipt
+  received_onboard_at TEXT -- onboard: when it arrived aboard
+);
+CREATE INDEX IF NOT EXISTS ix_gnote_ast ON ground_annotations(astronaut_id, created_at);

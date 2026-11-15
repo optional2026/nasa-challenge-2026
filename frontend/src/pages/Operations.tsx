@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LuPause, LuPlay, LuRotateCcw, LuSquare } from "react-icons/lu";
+import { EarthFreshness, EarthLinkPanel } from "../components/EarthLink";
 import { Chip, Empty, ErrorBox, Field, KV, Loading, Panel, Synthetic, useAsyncAction } from "../components/ui";
 import { post } from "../lib/api";
 import { ago, fmtTime, fmtValue, humanize } from "../lib/format";
@@ -66,6 +67,13 @@ function Simulator() {
 }
 
 function SyncPanel() {
+  const { side } = useApp();
+  if (side === "onboard") return <EarthLinkPanel />;
+  if (side === "earth") return <EarthFreshness />;
+  return <LegacySyncPanel />;
+}
+
+function LegacySyncPanel() {
   const { user, toast } = useApp();
   const { data, reload } = useData<any>("/sync", ["sync.updated", "sync.link", "medical_report.created"]);
   const [delay, setDelay] = useState("");

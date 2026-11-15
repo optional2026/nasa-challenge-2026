@@ -1,29 +1,35 @@
 import { useEffect, useState } from "react";
 import {
-  LuBookOpen, LuChartLine, LuClipboardList, LuCloudOff, LuLayoutDashboard, LuLogOut, LuOrbit, LuPersonStanding,
-  LuSatelliteDish, LuSettings2, LuSiren, LuUserPlus, LuUsers,
+  LuBookOpen, LuChartLine, LuClipboardList, LuCloudOff, LuFolderHeart, LuGlobe, LuLayoutDashboard, LuLogOut, LuOrbit,
+  LuPersonStanding, LuSatelliteDish, LuSettings2, LuSiren, LuUserPlus, LuUsers,
 } from "react-icons/lu";
 import { DemoDataButton } from "./components/DemoData";
+import { EarthLinkChip } from "./components/EarthLink";
+import ThemeSwitch from "./components/ThemeSwitch";
 import { Avatar } from "./components/ui";
 import { auth } from "./lib/api";
 import { ROLE_LABEL, humanize } from "./lib/format";
 import { HEALTH_EVENTS, useApp, useData } from "./lib/store";
 import Analytics from "./pages/Analytics";
+import AstronautRecords from "./pages/AstronautRecords";
 import BodySystems from "./pages/BodySystems";
 import CrewOverview from "./pages/CrewOverview";
 import Environment from "./pages/Environment";
 import Library from "./pages/Library";
 import Login from "./pages/Login";
 import MedicalResponse from "./pages/MedicalResponse";
+import MissionOverview from "./pages/MissionOverview";
 import Operations from "./pages/Operations";
 import Overview from "./pages/Overview";
 import Routine from "./pages/Routine";
 import Users from "./pages/Users";
 
 const PAGES = [
+  { id: "mission", label: "Mission overview", icon: LuGlobe, el: MissionOverview },
   { id: "crew", label: "Crew overview", icon: LuUsers, el: CrewOverview },
-  { id: "overview", label: "Mission overview", icon: LuLayoutDashboard, el: Overview },
-  { id: "body", label: "Body systems", icon: LuPersonStanding, el: BodySystems },
+  { id: "records", label: "Astronaut records", icon: LuFolderHeart, el: AstronautRecords },
+  { id: "overview", label: "My dashboard", icon: LuLayoutDashboard, el: Overview },
+  { id: "body", label: "Health records", icon: LuPersonStanding, el: BodySystems },
   { id: "analytics", label: "Health analytics", icon: LuChartLine, el: Analytics },
   { id: "response", label: "Medical response", icon: LuSiren, el: MedicalResponse },
   { id: "routine", label: "Daily routine", icon: LuClipboardList, el: Routine },
@@ -32,21 +38,36 @@ const PAGES = [
   { id: "ops", label: "Mission operations", icon: LuSettings2, el: Operations },
   { id: "users", label: "User management", icon: LuUserPlus, el: Users },
 ];
-const HEALTH_PAGES = new Set(["overview", "body", "analytics", "response", "routine"]);
+// Personal astronaut pages (own health record). Earth-based roles never get these as navigation tabs; for them the
+// same route ids render inside "Astronaut records" for the astronaut they selected.
+const PERSONAL_PAGES = new Set(["overview", "body", "analytics", "routine"]);
+const HEALTH_PAGES = new Set(["overview", "body", "analytics", "response", "routine", "records"]);
+const isEarth = (role: string) => role === "admin" || role === "flight_surgeon";
 // Navigation mirrors the server-side permissions (the server enforces them regardless of what is shown).
-//  astronaut: own dashboard, routine, analytics, alerts/response, health records (+ shared environment & library)
-//  CMO: astronaut pages + crew overview + mission operations (baselines, sync)
-//  administrator: crew overview, user management, read-only health records, mission operations
+//  astronaut: own dashboard, measurements/routine, analytics, alerts/response, health records (+ environment & library)
+//  CMO: astronaut pages for themself + crew overview, crew records (header selector), mission operations
+//  administrator (Earth): mission & crew overview, individual astronaut records (read-only), alerts & medical events,
+//    mission operations & sync, user management — no personal health-recording pages
+//  ground flight surgeon (Earth): assigned mission & crew, astronaut medical records, medical response & reports,
+//    medical operations (baselines, audit) — no personal health-recording pages
 function pageAllowed(id: string, role: string): boolean {
-  if (id === "crew") return role === "medical_officer" || role === "flight_surgeon" || role === "admin";
+  if (id === "mission" || id === "records") return isEarth(role);
+  if (PERSONAL_PAGES.has(id)) return !isEarth(role);
+  if (id === "crew") return role !== "astronaut";
   if (id === "users") return role === "admin";
   if (id === "ops") return role !== "astronaut";
   return true;
 }
 function pageLabel(id: string, label: string, role: string): string {
-  if (id === "overview") return role === "astronaut" ? "My dashboard" : "Astronaut dashboard";
-  if (id === "body") return "Health records";
-  if (id === "response") return role === "astronaut" ? "Alerts & response" : label;
+  if (id === "response") {
+    if (role === "astronaut") return "Alerts & response";
+    if (role === "admin") return "Alerts & medical events";
+    if (role === "flight_surgeon") return "Medical response & reports";
+  }
+  if (id === "records" && role === "flight_surgeon") return "Astronaut medical records";
+  if (id === "ops" && role === "admin") return "Mission ops & sync";
+  if (id === "ops" && role === "flight_surgeon") return "Medical operations";
+  if (id === "users") return "Users & crew assignment";
   return label;
 }
 
@@ -66,18 +87,23 @@ function MissionClock({ start }: { start?: string }) {
 }
 
 export default function App() {
-  const { user, setUser, route, navigate, crew, astronautId, setAstronautId, connected, serverReachable, outboxCount, toasts, version } = useApp();
+  const { user, setUser, route, navigate, crew, astronautId, setAstronautId, connected, serverReachable, outboxCount, toasts, version, side } = useApp();
   const { data: mission } = useData<any[]>(user ? "/missions" : null, ["sync.link"]);
   const { data: sim } = useData<any>(user ? "/simulator" : null, ["simulator.status", "simulator.reset"]);
   const { data: openAlerts } = useData<any[]>(user && astronautId ? `/alerts?status=open&astronaut_id=${astronautId}` : null, HEALTH_EVENTS, [astronautId]);
   if (!user) return <Login onLogin={setUser} />;
   const m = mission?.[0];
   const isAdmin = user.role === "admin";
+  const earth = isEarth(user.role);
   let pageId = route.page;
-  if (!PAGES.find((p) => p.id === pageId) || !pageAllowed(pageId, user.role)) pageId = isAdmin || user.role === "flight_surgeon" ? "crew" : "overview";
+  // Earth-based roles: personal-page route ids (used by links inside the reused record components) open the
+  // selected astronaut's records instead.
+  if (earth && PERSONAL_PAGES.has(pageId)) pageId = "records";
+  if (!PAGES.find((p) => p.id === pageId) || !pageAllowed(pageId, user.role)) pageId = earth ? "mission" : "overview";
   const viewed = crew.find((c) => c.id === astronautId);
   const viewingSelf = !!user.astronaut_id && user.astronaut_id === astronautId;
   const Page = PAGES.find((p) => p.id === pageId)!.el;
+  const showSelector = crew.length > 0 && (earth ? pageId === "response" || pageId === "ops" : true);
   const urgent = (openAlerts || []).filter((a) => a.severity === "URGENT").length;
   const simState = sim?.state;
 
@@ -96,6 +122,7 @@ export default function App() {
         </nav>
         <div className="rail-foot">
           <div className="who"><strong>{user.display_name}</strong><span>{ROLE_LABEL[user.role]}</span></div>
+          <ThemeSwitch />
           <button className="btn btn-quiet" onClick={() => { auth.set(null); setUser(null); }}><LuLogOut aria-hidden /> Sign out</button>
         </div>
       </aside>
@@ -107,11 +134,15 @@ export default function App() {
           </div>
           <MissionClock start={m?.start_utc} />
           <div className="strip-status">
-            <span className={`link link-${m?.earth_link_status}`} title="Earth link (store-and-forward)">
-              <LuSatelliteDish aria-hidden /> Earth link {m?.earth_link_status}{m ? ` · ${Math.round(m.comm_delay_seconds / 60 * 10) / 10} min delay` : ""}
-            </span>
-            <span className={`live ${connected ? "on" : "off"}`} title="Real-time connection to the onboard ASTRA server">
-              {connected ? "Live" : serverReachable ? "Reconnecting" : <><LuCloudOff aria-hidden /> Onboard server unreachable</>}
+            {side === "standalone" ? (
+              <span className={`link link-${m?.earth_link_status}`} title="Earth link (store-and-forward)">
+                <LuSatelliteDish aria-hidden /> Earth link {m?.earth_link_status}{m ? ` · ${Math.round(m.comm_delay_seconds / 60 * 10) / 10} min delay` : ""}
+              </span>
+            ) : <EarthLinkChip />}
+            <span className={`live ${connected ? "on" : "off"}`} title={side === "earth" ? "Real-time connection to the Earth ASTRA server" : "Real-time connection to the onboard ASTRA server"}>
+              {side === "earth"
+                ? (connected ? "Earth server connected" : serverReachable ? "Reconnecting" : <><LuCloudOff aria-hidden /> Earth server unreachable</>)
+                : (connected ? (side === "onboard" ? "Onboard server · live" : "Live") : serverReachable ? "Reconnecting" : <><LuCloudOff aria-hidden /> Onboard server unreachable</>)}
             </span>
             {outboxCount > 0 && <span className="chip chip-attn">{outboxCount} unsent</span>}
             {user.astronaut_id && (user.role === "astronaut" || user.role === "medical_officer") && <DemoDataButton />}
@@ -119,7 +150,7 @@ export default function App() {
               <a href="#/ops" className={`chip chip-sim sim-${simState}`}>Simulator {humanize(simState)}{sim?.scenario ? ` · ${humanize(sim.scenario)}` : ""}</a>
             )}
           </div>
-          {crew.length > 0 && (
+          {showSelector && (
             <label className="ast-select">
               <span>Viewing records of</span>
               <select value={astronautId || ""} onChange={(e) => setAstronautId(e.target.value)} disabled={user.role === "astronaut"}>
@@ -139,11 +170,11 @@ export default function App() {
             <span>{viewingSelf ? <>Your own health records · <b>{viewed.name}</b></>
               : <>Viewing the health records of <b>{viewed.name}</b> · {viewed.crew_role}{viewed.crew ? ` · ${viewed.crew}` : ""}</>}</span>
             {isAdmin && <span className="chip chip-plain" title="Administrators can view non-private records but cannot record data or take clinical actions">Read-only · administrator</span>}
-            {!viewingSelf && (user.role === "medical_officer" || user.role === "flight_surgeon" || isAdmin) && <a className="linkish small" href="#/crew">Back to crew overview</a>}
+            {!viewingSelf && user.role !== "astronaut" && <a className="linkish small" href="#/crew">Back to crew overview</a>}
           </div>
         )}
         <main id="main" tabIndex={-1}>
-          <Page key={pageId + (astronautId || "")} />
+          <Page key={pageId === "records" ? "records" : pageId + (astronautId || "")} />
         </main>
       </div>
       <div className="toasts" aria-live="polite">

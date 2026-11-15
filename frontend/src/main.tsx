@@ -11,3 +11,9 @@ createRoot(document.getElementById("root")!).render(
     </AppProvider>
   </StrictMode>,
 );
+
+// Progressive Web App: cache the application shell so a previously loaded ASTRA opens without network.
+// Health data is never cached by the service worker (see public/sw.js).
+if ("serviceWorker" in navigator && window.isSecureContext && location.port !== "5173") {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").catch(() => { /* optional */ }); });
+}

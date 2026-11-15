@@ -7,7 +7,7 @@ import { STATUS_INFO, ago, fmtTime, fmtValue, humanize, unit } from "../lib/form
 import { HEALTH_EVENTS, useApp, useData } from "../lib/store";
 
 export default function Overview() {
-  const { astronautId, navigate } = useApp();
+  const { astronautId, navigate, user } = useApp();
   const [obs, setObs] = useState<string | null>(null);
   const { data, error, loading, reload } = useData<any>(astronautId ? `/overview?astronaut_id=${astronautId}` : null,
     [...HEALTH_EVENTS, "environment.warning", "environment.event_ended", "sync.updated", "sync.link"], [astronautId]);
@@ -35,7 +35,7 @@ export default function Overview() {
           )}
         </div>
         <div className="lamp-side">
-          <button className="btn" onClick={() => navigate("routine")}>Record a measurement</button>
+          {user?.role !== "admin" && <button className="btn" onClick={() => navigate("routine")}>{user?.role === "flight_surgeon" ? "Logs & clinician entry" : "Record a measurement"}</button>}
           {data.active_alerts.some((x: any) => x.severity === "URGENT") && <button className="btn btn-urgent" onClick={() => navigate("response")}>Open Medical Response Center</button>}
         </div>
       </section>

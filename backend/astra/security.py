@@ -21,11 +21,17 @@ from . import config
 
 ROLES = ("astronaut", "medical_officer", "flight_surgeon", "admin")
 MEDICAL_ROLES = ("medical_officer", "flight_surgeon")
-# Crew-side roles sign in by selecting their profile (no password; hackathon simulation only —
-# see docs/SECURITY.md). Earth-side roles (admin, flight surgeon) still sign in with a password.
-PROFILE_SELECT_ROLES = ("astronaut", "medical_officer")
+# Aboard the spacecraft (have a personal astronaut health record) vs. Earth-based personnel (no personal record).
+CREW_ROLES = ("astronaut", "medical_officer")
+EARTH_ROLES = ("flight_surgeon", "admin")
+# Every role signs in with a username and password (scrypt hash, never returned by the API).
 # Roles an administrator may create/assign through user management.
-ADMIN_ASSIGNABLE_ROLES = ("astronaut", "medical_officer")
+ADMIN_ASSIGNABLE_ROLES = CREW_ROLES
+
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+_COMMON_PASSWORDS = {"password", "password1", "12345678", "123456789", "1234567890", "qwerty123", "letmein1",
+                     "astronaut", "iloveyou", "11111111", "00000000", "abcdefgh", "changeme", "welcome1"}
 
 
 # ------------------------------------------------------------------ passwords
@@ -46,6 +52,24 @@ def verify_password(password: str, stored: str) -> bool:
         return hmac.compare_digest(digest, expected)
     except Exception:
         return False
+
+
+def password_problems(password: str, username: str | None = None) -> list[str]:
+    """Server-side password policy for new and reset passwords. Returns human-readable problems (empty = OK)."""
+    probs = []
+    if len(password) < PASSWORD_MIN_LENGTH:
+        probs.append(f"password must be at least {PASSWORD_MIN_LENGTH} characters")
+    if len(password) > PASSWORD_MAX_LENGTH:
+        probs.append(f"password must be at most {PASSWORD_MAX_LENGTH} characters")
+    if password.strip() != password or not password.strip():
+        probs.append("password must not start or end with whitespace")
+    if len(set(password)) < 4:
+        probs.append("password must contain at least 4 different characters")
+    if password.lower() in _COMMON_PASSWORDS:
+        probs.append("password is too common")
+    if username and password.lower() == username.lower():
+        probs.append("password must not be the same as the username")
+    return probs
 
 
 # ------------------------------------------------------------------ device keys
@@ -71,6 +95,9 @@ class Principal:
     extra: dict = field(default_factory=dict)
     # Crew Medical Officer only: astronaut ids in the same mission + crew (resolved at authentication).
     crew_astronaut_ids: frozenset = field(default_factory=frozenset)
+    # Earth-based roles: astronaut ids on the mission(s) the account is assigned to (resolved at authentication).
+    # None = no mission restriction (an administrator with no mission assignment oversees every mission).
+    scope_astronaut_ids: frozenset | None = None
 
     @property
     def is_medical(self) -> bool:
@@ -107,16 +134,34 @@ def crew_astronaut_ids(conn, astronaut_id: str | None) -> frozenset:
     return frozenset(r["id"] for r in rows)
 
 
+def mission_astronaut_ids(conn, mission_id: str | None) -> frozenset:
+    if not mission_id:
+        return frozenset()
+    return frozenset(r["id"] for r in conn.execute("SELECT id FROM astronauts WHERE mission_id=?", (mission_id,)).fetchall())
+
+
 def user_principal(conn, user: dict) -> Principal:
     """Build the request principal for an active user row (shared by HTTP and WebSocket auth)."""
     mission_id = None
+    scope = None
     if user["astronaut_id"]:
         a = conn.execute("SELECT mission_id FROM astronauts WHERE id=?", (user["astronaut_id"],)).fetchone()
         mission_id = a["mission_id"] if a else None
+    elif user["role"] in EARTH_ROLES:
+        mission_id = user.get("mission_id")
+        if user["role"] == "flight_surgeon":
+            # Ground flight surgeon: ONLY the assigned mission (no assignment = no astronaut access).
+            scope = mission_astronaut_ids(conn, mission_id)
+        elif mission_id:
+            scope = mission_astronaut_ids(conn, mission_id)
     crew = crew_astronaut_ids(conn, user["astronaut_id"]) if user["role"] == "medical_officer" else frozenset()
     return Principal(kind="user", name=user["username"], role=user["role"], user_id=user["id"],
                      astronaut_id=user["astronaut_id"], mission_id=mission_id,
-                     display_name=user["display_name"], crew_astronaut_ids=crew)
+                     display_name=user["display_name"], crew_astronaut_ids=crew, scope_astronaut_ids=scope)
+
+
+def in_earth_scope(p: Principal, astronaut_id: str) -> bool:
+    return p.scope_astronaut_ids is None or astronaut_id in p.scope_astronaut_ids
 
 
 # ------------------------------------------------------------------ authorization helpers
@@ -126,14 +171,15 @@ def can_view_astronaut(p: Principal, astronaut_id: str | None) -> bool:
         return p.kind in ("user", "system")
     if p.kind == "system":
         return True
-    if p.role == "flight_surgeon":  # ground medical oversight of the whole mission
-        return True
+    if p.role == "flight_surgeon":  # ground medical oversight of the ASSIGNED mission only
+        return in_earth_scope(p, astronaut_id)
     if p.role == "admin":
         # Earth-based mission administrator: READ-ONLY view of the crew's non-private health records.
         # Every write path (ingestion, records, medication, history, baselines, alert/event actions)
         # rejects the admin role separately, and private behavioral-health content stays hidden
-        # (can_view_private / can_see_private_exists are False for admin).
-        return True
+        # (can_view_private / can_see_private_exists are False for admin). Limited to the assigned mission
+        # when the administrator account has one.
+        return in_earth_scope(p, astronaut_id)
     if p.role == "medical_officer":  # own record + astronauts assigned to the CMO's crew
         return p.astronaut_id == astronaut_id or astronaut_id in p.crew_astronaut_ids
     if p.role == "astronaut":
@@ -150,7 +196,7 @@ def can_view_private(p: Principal, astronaut_id: str | None) -> bool:
     if p.kind == "system":
         return True
     if p.role == "flight_surgeon":
-        return True
+        return astronaut_id is not None and in_earth_scope(p, astronaut_id)
     if p.role in ("astronaut", "medical_officer") and astronaut_id is not None:
         return p.astronaut_id == astronaut_id
     return False

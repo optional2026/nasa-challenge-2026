@@ -15,13 +15,15 @@ import random
 import threading
 from datetime import timedelta
 
-from .. import audit, db
+from .. import audit, config, db
 from ..bus import BUS
 
 MAX_BACKOFF_S = 300
 
 
-def enqueue(conn, item_type: str, item_id: str, payload: dict, *, private: bool = False, priority: int = 5) -> str:
+def enqueue(conn, item_type: str, item_id: str, payload: dict, *, private: bool = False, priority: int = 5) -> str | None:
+    if config.deployment() != "standalone":
+        return None  # onboard/Earth deployments: records are replicated by services.replication (database triggers)
     phash = db.sha256(payload)
     key = f"{item_type}:{item_id}:{phash[:16]}"
     existing = db.one(conn, "SELECT id FROM sync_queue WHERE idempotency_key=?", (key,))
@@ -127,6 +129,8 @@ def process(conn, now=None, rng: random.Random | None = None) -> dict:
 
 
 def status(conn) -> dict:
+    if config.deployment() != "standalone":
+        return _replication_status(conn)
     mission = db.one(conn, "SELECT id, earth_link_status, comm_delay_seconds FROM missions ORDER BY start_utc DESC LIMIT 1")
     rows = db.all_(conn, "SELECT status, COUNT(*) c FROM sync_queue GROUP BY status")
     items = db.all_(conn, "SELECT id, item_type, item_id, status, attempts, priority, created_at, last_attempt_at, next_attempt_at, "
@@ -137,6 +141,26 @@ def status(conn) -> dict:
             "comm_delay_seconds": mission["comm_delay_seconds"] if mission else None,
             "counts": {r["status"]: r["c"] for r in rows}, "items": items,
             "ground_segment": "SIMULATED in-process ground station (prototype)"}
+
+
+def _replication_status(conn) -> dict:
+    """Legacy /sync shape for the two-sided deployments (backed by the real replication outbox)."""
+    from . import replication
+    mission = db.one(conn, "SELECT id, comm_delay_seconds FROM missions ORDER BY start_utc DESC LIMIT 1")
+    if config.deployment() == "earth":
+        st = replication.earth_status(conn, None)
+        return {"mission_id": mission["id"] if mission else None, "earth_link_status": "earth_side",
+                "comm_delay_seconds": mission["comm_delay_seconds"] if mission else None,
+                "counts": {"records_received": st["records_received"]}, "items": [],
+                "last_received_at": st["last_received_at"],
+                "ground_segment": "Earth Side server — receives records from the onboard ASTRA server"}
+    st = replication.link_status(conn)
+    link = {"available": "online", "unavailable_simulated": "offline", "unreachable": "offline"}.get(st["link_state"], "degraded")
+    return {"mission_id": mission["id"] if mission else None, "earth_link_status": link,
+            "comm_delay_seconds": mission["comm_delay_seconds"] if mission else None,
+            "counts": {k.lower(): v for k, v in st["counts"].items() if v}, "items": [],
+            "link_state": st["link_state"], "last_success_at": st["last_success_at"],
+            "ground_segment": f"Real Earth ASTRA server ({st['earth_server'] or 'not configured'})"}
 
 
 def set_link(conn, actor, status_value: str, delay: float | None) -> dict:

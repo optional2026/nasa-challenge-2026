@@ -101,6 +101,9 @@ def _authorize(conn, p: Principal, obs: ObservationIn, ind: dict, device: dict |
         elif p.role == "medical_officer":
             if ind["subject"] != "environment" and obs.astronaut_id and not can_view_astronaut(p, obs.astronaut_id):
                 errs.append("the Crew Medical Officer may only record measurements for astronauts in their crew")
+        elif p.role == "flight_surgeon":
+            if obs.astronaut_id and not can_view_astronaut(p, obs.astronaut_id):
+                errs.append("the flight surgeon may only record measurements for astronauts on their assigned mission")
     if errs:
         raise ItemError(errs)
 

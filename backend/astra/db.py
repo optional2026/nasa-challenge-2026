@@ -58,7 +58,9 @@ def hours_ago(h: float) -> str:
 
 # ------------------------------------------------------------------ ids / json
 def new_id(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:12].upper()}"
+    """Globally unique record id (80 random bits from uuid4). Records are replicated between the onboard and the
+    Earth database, so ids must not collide across independently running servers."""
+    return f"{prefix}-{uuid.uuid4().hex[:20].upper()}"
 
 
 def dumps(obj: Any) -> str:
@@ -130,6 +132,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(astronauts)").fetchall()}
     if "crew" not in cols:
         conn.execute("ALTER TABLE astronauts ADD COLUMN crew TEXT NOT NULL DEFAULT 'Prime Crew'")
+    ucols = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "mission_id" not in ucols:  # Earth-based accounts: assigned mission (flight surgeon is restricted to it)
+        conn.execute("ALTER TABLE users ADD COLUMN mission_id TEXT REFERENCES missions(id)")
 
 
 # ------------------------------------------------------------------ query helpers
@@ -150,3 +155,10 @@ def insert(conn: sqlite3.Connection, table: str, row: dict) -> None:
 def update(conn: sqlite3.Connection, table: str, key: str, key_value: Any, changes: dict) -> None:
     sets = ",".join(f"{k}=?" for k in changes)
     conn.execute(f"UPDATE {table} SET {sets} WHERE {key}=?", (*changes.values(), key_value))
+
+
+def update_where(conn: sqlite3.Connection, table: str, where: str, where_params: Iterable, changes: dict) -> None:
+    if not changes:
+        return
+    sets = ",".join(f"{k}=?" for k in changes)
+    conn.execute(f"UPDATE {table} SET {sets} WHERE {where}", (*changes.values(), *tuple(where_params)))

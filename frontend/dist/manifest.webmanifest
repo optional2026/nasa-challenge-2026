@@ -1,0 +1,11 @@
+{
+  "name": "ASTRA — astronaut health monitoring",
+  "short_name": "ASTRA",
+  "description": "Astronaut Self-assessment, Tracking and Response Assistant (decision-support prototype, synthetic data).",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F8FF",
+  "theme_color": "#7655D9",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

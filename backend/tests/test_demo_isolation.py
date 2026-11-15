@@ -27,9 +27,8 @@ def sim_count(ast):
 
 
 def select(client, username):
-    crew = client.get(f"{API}/auth/profiles").json()["crew"]
-    uid = next(p["user_id"] for p in crew if p["username"] == username)
-    r = client.post(f"{API}/auth/select-profile", json={"user_id": uid})
+    from conftest import password_for
+    r = client.post(f"{API}/auth/login", json={"username": username, "password": password_for(username)})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
 

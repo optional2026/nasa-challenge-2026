@@ -44,7 +44,7 @@ export async function api<T = any>(method: string, path: string, body?: any): Pr
   if (text) { try { data = JSON.parse(text); } catch { data = text; } }
   if (!res.ok) {
     const e = data?.error || {};
-    if (res.status === 401 && path !== "/auth/login" && path !== "/auth/select-profile") onUnauthorized();
+    if (res.status === 401 && path !== "/auth/login") onUnauthorized();
     throw new ApiError(res.status, e.code || "http_error", e.message || `Request failed (${res.status})`, e.details);
   }
   return data as T;

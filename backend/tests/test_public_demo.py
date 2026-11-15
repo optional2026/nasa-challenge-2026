@@ -46,7 +46,7 @@ def test_login_rate_limit_per_visitor(client, public):
     assert codes[:n] == [401] * n and codes[n] == 429
     # successful sign-ins are never limited (a whole judging room may share one IP)
     for _ in range(n + 5):
-        assert client.post("/api/v1/auth/login", json={"username": "vega", "password": "astra-demo"},
+        assert client.post("/api/v1/auth/login", json={"username": "vega", "password": "optionalwillwin"},
                            headers={"CF-Connecting-IP": "203.0.113.9"}).status_code == 200
     # another visitor is not affected
     assert client.post("/api/v1/auth/login", json={"username": "x", "password": "y"},

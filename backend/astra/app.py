@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import mimetypes
 import os
 from pathlib import Path
 
@@ -15,19 +16,22 @@ from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from . import config, db, security, seed
+from . import config, db, security, seed, sides
 from .protection import ProtectionMiddleware
-from .api import routes_data, routes_health, routes_ops
+from .api import routes_data, routes_health, routes_ops, routes_replication
 from .api.framework import Api
 from .bus import BUS
 from .security import Principal
-from .services import sync
+from .services import replication, sync
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+mimetypes.add_type("text/javascript", ".js")
 api = Api(config.API_PREFIX)
 routes_data.register(api)
 routes_health.register(api)
 routes_ops.register(api)
+routes_replication.register(api)
 
 DESCRIPTION = ("ASTRA — Astronaut Self-assessment, Tracking and Response Assistant. Decision-support prototype for the "
                "NASA Space Apps Challenge 2026. Not an autonomous doctor. All demo data is SYNTHETIC; rules marked "
@@ -72,7 +76,8 @@ async def websocket_endpoint(ws: WebSocket):
         return
     with db.session() as conn:
         u = db.one(conn, "SELECT * FROM users WHERE id=? AND active=1", (int(claims["sub"]),))
-        p = security.user_principal(conn, u) if u and u["role"] == claims.get("role") else None
+        p = (security.user_principal(conn, u) if u and u["role"] == claims.get("role") and sides.role_allowed(u["role"])
+             else None)
     if not p:
         await ws.close(code=4401)
         return
@@ -113,7 +118,8 @@ def _frontend_routes() -> list:
         routes.append(Mount("/assets", app=StaticFiles(directory=dist / "assets"), name="assets"))
     for f in dist.iterdir():
         if f.is_file() and f.name != "index.html":
-            routes.append(Route("/" + f.name, (lambda p: (lambda r: FileResponse(p)))(f)))
+            headers = {"Cache-Control": "no-cache"} if f.suffix in (".js", ".webmanifest") else None
+            routes.append(Route("/" + f.name, (lambda p, h: (lambda r: FileResponse(p, headers=h)))(f, headers)))
     routes.append(Route("/{path:path}", spa))
     return routes
 
@@ -126,23 +132,46 @@ async def lifespan(app):
         seed.apply_demo_password(conn)
     if info.get("seeded"):
         print(f"[astra] seeded synthetic demo dataset: {info}")
+    dep = config.deployment()
+    print(f"[astra] deployment: {sides.SIDE_LABEL[dep]} (node {config.node_id()})")
     worker = None
+    if dep == "onboard":
+        # Change capture is installed AFTER the pre-flight reference dataset exists (both sides are provisioned with
+        # it), so only records created aboard from now on are queued for Earth.
+        with db.session() as conn:
+            replication.install_triggers(conn)
+            if replication.get_state(conn, "simulated_outage") == "1":
+                print("[astra] Earth link: SIMULATED OUTAGE is active (set by the CMO; persists across restarts)"
+                      if config.allow_link_simulation() else
+                      "[astra] stored simulated outage ignored: ASTRA_ALLOW_LINK_SIMULATION is not enabled")
+        if not config.earth_url() or not config.sync_key():
+            print("[astra] WARNING: ASTRA_EARTH_URL / ASTRA_SYNC_KEY not configured — records stay queued onboard")
     if os.environ.get("ASTRA_DISABLE_SYNC_WORKER") != "1":
-        worker = sync.SyncWorker()
-        worker.start()
+        if dep == "onboard":
+            worker = replication.SyncWorker()
+            replication.WORKER = worker
+        elif dep == "standalone":
+            worker = sync.SyncWorker()  # legacy in-process simulated ground station
+        if worker:
+            worker.start()
     try:
         yield
     finally:
         if worker:
             worker.stop_event.set()
+            if isinstance(worker, replication.SyncWorker):
+                worker.wake.set()
+                replication.WORKER = None
         from simulator.source import RUNNER
         RUNNER.stop()
 
 
 async def public_config(request):
     """Tells the login page whether this is the public demo server (no secrets)."""
+    dep = config.deployment()
     return JSONResponse({"public_demo": config.public_demo(), "show_demo_password": not config.public_demo(),
-                         "data": "synthetic"})
+                         "data": "synthetic", "deployment": dep, "side_label": sides.SIDE_LABEL[dep],
+                         "allowed_roles": list(sides.allowed_roles()), "node_id": config.node_id()})
 
 
 async def api_not_found(request):
@@ -154,6 +183,8 @@ def create_app() -> Starlette:
         Route("/api/openapi.json", openapi_json),
         Route("/api/docs", api_docs),
         Route("/api/v1/public-config", public_config),
+        Route("/api/v1/replication/batch", routes_replication.replication_batch, methods=["POST"]),
+        Route("/api/v1/replication/downlink", routes_replication.replication_downlink, methods=["GET"]),
         WebSocketRoute("/ws", websocket_endpoint),
         Route("/api/{path:path}", api_not_found, methods=["GET", "POST", "PUT", "PATCH", "DELETE"]),
     ] + _frontend_routes()

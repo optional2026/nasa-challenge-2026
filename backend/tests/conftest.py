@@ -18,7 +18,13 @@ from starlette.testclient import TestClient  # noqa: E402
 
 from astra.app import app  # noqa: E402
 
-PASSWORD = "astra-demo"
+PASSWORD = "astra-demo"            # Earth-side demo accounts (admin, ramirez)
+CREW_PASSWORD = "optionalwillwin"  # shared demo password of the three pre-created crew accounts
+CREW_USERS = ("vega", "okafor", "mori")
+
+
+def password_for(username):
+    return CREW_PASSWORD if username in CREW_USERS else PASSWORD
 
 
 @pytest.fixture(scope="session")
@@ -28,7 +34,7 @@ def client():
 
 
 def _login(client, username):
-    r = client.post("/api/v1/auth/login", json={"username": username, "password": PASSWORD})
+    r = client.post("/api/v1/auth/login", json={"username": username, "password": password_for(username)})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
 

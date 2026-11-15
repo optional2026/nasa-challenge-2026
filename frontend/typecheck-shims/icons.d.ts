@@ -13,6 +13,13 @@ declare module "react-icons/lu" {
   export const LuRocket: any;
   export const LuUserPlus: any;
   export const LuUsers: any;
+  export const LuUnplug: any;
+  export const LuSun: any;
+  export const LuMoon: any;
+  export const LuMonitor: any;
+  export const LuPlug: any;
+  export const LuMessageSquareText: any;
+  export const LuRefreshCw: any;
   export const LuFileText: any;
   export const LuLayoutDashboard: any;
   export const LuLoaderCircle: any;

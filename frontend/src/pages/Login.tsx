@@ -1,58 +1,41 @@
-// Sign-in screen. Crew members (astronauts and the Crew Medical Officer) select their profile — a simplified,
-// credential-free simulation sign-in that does NOT verify identity. Earth-side accounts (administrator,
-// ground flight surgeon) still sign in with a password. Roles are always enforced by the server.
+// Sign-in screen. Every role — astronauts, the Crew Medical Officer, the ground flight surgeon and the mission
+// administrator — signs in with a username and password. Passwords are verified by the server against a salted
+// scrypt hash; no password is stored in or shipped with the frontend. Roles are always enforced by the server.
 import { useEffect, useState } from "react";
 import { LuEarth, LuLock, LuRocket } from "react-icons/lu";
 import { auth, get, post } from "../lib/api";
-import { ROLE_LABEL } from "../lib/format";
-import { Avatar, ErrorBox, Loading } from "../components/ui";
+import { ErrorBox } from "../components/ui";
+import ThemeSwitch from "../components/ThemeSwitch";
 
-interface CrewProfile {
-  user_id: number; username: string; display_name: string; role: string; astronaut_id: string; name: string;
-  call_sign: string | null; crew_role: string | null; crew: string | null; mission_id: string | null; mission_name: string | null;
-}
-interface EarthAccount { username: string; display_name: string; role: string }
+// Demo account names only (not secrets). Passwords are documented in README.md, never in this bundle.
+const DEMO_ACCOUNTS: [string, string, string][] = [
+  ["vega", "Astronaut", "crew"], ["okafor", "Astronaut", "crew"], ["mori", "Crew Medical Officer", "crew"],
+  ["ramirez", "Ground flight surgeon", "earth"], ["admin", "Mission administrator", "earth"],
+];
 
 export default function Login({ onLogin }: { onLogin: (u: any) => void }) {
-  const [profiles, setProfiles] = useState<{ crew: CrewProfile[]; earth: EarthAccount[]; notice: string } | null>(null);
-  const [loadErr, setLoadErr] = useState<any>(null);
-  const [err, setErr] = useState<any>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [earthUser, setEarthUser] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [cfg, setCfg] = useState<any>({ show_demo_password: true });
+  const [err, setErr] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [cfg, setCfg] = useState<any>({ show_demo_password: false });
 
-  useEffect(() => {
-    get("/public-config").then(setCfg).catch(() => {});
-    get("/auth/profiles").then(setProfiles).catch(setLoadErr);
-  }, []);
-
-  const finish = (r: any) => { auth.set(r.token); onLogin(r.user); };
-
-  const select = async (p: CrewProfile) => {
-    setBusy(p.username); setErr(null);
-    try { finish(await post("/auth/select-profile", { user_id: p.user_id })); }
-    catch (ex) { setErr(ex); } finally { setBusy(null); }
-  };
+  const [unreachable, setUnreachable] = useState(false);
+  useEffect(() => { get("/public-config").then((c) => { setCfg(c); setUnreachable(false); }).catch(() => setUnreachable(true)); }, []);
 
   const signIn = async (e: any) => {
     e.preventDefault();
-    if (!earthUser) return;
-    setBusy(earthUser); setErr(null);
-    try { finish(await post("/auth/login", { username: earthUser, password })); }
-    catch (ex) { setErr(ex); } finally { setBusy(null); }
+    setBusy(true); setErr(null);
+    try {
+      const r = await post("/auth/login", { username: username.trim().toLowerCase(), password });
+      auth.set(r.token); onLogin(r.user);
+    } catch (ex) { setErr(ex); setPassword(""); } finally { setBusy(false); }
   };
-
-  // group crew profiles by mission + crew
-  const groups: Record<string, CrewProfile[]> = {};
-  (profiles?.crew || []).forEach((p) => {
-    const k = `${p.mission_name || "Unassigned mission"}|${p.crew || "Unassigned crew"}`;
-    (groups[k] = groups[k] || []).push(p);
-  });
 
   return (
     <div className="login">
-      <div className="login-card wide">
+      <div className="login-theme"><ThemeSwitch /></div>
+      <div className="login-card">
         <div className="login-title">
           <span className="brand-mark big" aria-hidden />
           <div>
@@ -61,61 +44,44 @@ export default function Login({ onLogin }: { onLogin: (u: any) => void }) {
           </div>
         </div>
 
-        <section aria-labelledby="crew-h" className="stack">
-          <h2 id="crew-h" className="login-h"><LuRocket aria-hidden /> Select your crew profile</h2>
-          {loadErr && <ErrorBox error={loadErr} onRetry={() => { setLoadErr(null); get("/auth/profiles").then(setProfiles).catch(setLoadErr); }} />}
-          {!profiles && !loadErr && <Loading label="Loading crew profiles" />}
-          {profiles && profiles.crew.length === 0 && <p className="muted">No active crew profiles. Ask the mission administrator to register one.</p>}
-          {Object.entries(groups).map(([k, list]) => {
-            const [mission, crew] = k.split("|");
-            return (
-              <div key={k} className="profile-group">
-                <p className="profile-group-h"><strong>{crew}</strong> · {mission}</p>
-                <ul className="profile-grid">
-                  {list.map((p) => (
-                    <li key={p.user_id}>
-                      <button type="button" className="profile-card" data-username={p.username} disabled={!!busy} onClick={() => select(p)}
-                        aria-label={`Sign in as ${p.name}, ${ROLE_LABEL[p.role]}`}>
-                        <Avatar name={p.name} seed={p.astronaut_id} size={52} />
-                        <span className="profile-text">
-                          <strong>{p.name}</strong>
-                          <span className={`role-tag role-${p.role}`}>{ROLE_LABEL[p.role]}</span>
-                          <small>{[p.crew_role, p.call_sign ? `“${p.call_sign}”` : null].filter(Boolean).join(" · ")}</small>
-                        </span>
-                        {busy === p.username && <span className="muted small">Entering…</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-          <p className="note warn small" role="note">{profiles?.notice || "Crew profile selection is a simulation sign-in without credentials. It does not verify identity and is not suitable for an operational medical system."}</p>
-        </section>
-
-        <section aria-labelledby="earth-h" className="stack earth-signin">
-          <h2 id="earth-h" className="login-h"><LuEarth aria-hidden /> Mission Control (Earth)</h2>
-          <div className="btn-row">
-            {(profiles?.earth || []).map((e) => (
-              <button key={e.username} type="button" data-username={e.username} className={`btn earth-account ${earthUser === e.username ? "btn-primary" : ""}`}
-                onClick={() => { setEarthUser(e.username); setErr(null); if (cfg.show_demo_password) setPassword("astra-demo"); }}>
-                <LuLock aria-hidden /> {e.display_name} <small className="muted">· {ROLE_LABEL[e.role]}</small>
-              </button>
-            ))}
+        {cfg.deployment && cfg.deployment !== "standalone" && (
+          <div className={`side-banner side-${cfg.deployment}`} role="note">
+            {cfg.deployment === "onboard" ? <LuRocket aria-hidden /> : <LuEarth aria-hidden />}
+            <div><strong>{cfg.side_label}</strong>
+              <span>{cfg.deployment === "onboard"
+                ? "Astronauts and the Crew Medical Officer sign in here. Works without any connection to Earth."
+                : "Administrators and ground flight surgeons sign in here. Shows astronaut data received from the spacecraft."}</span></div>
           </div>
-          {earthUser && (
-            <form onSubmit={signIn} className="inline-signin">
-              <input type="hidden" name="username" value={earthUser} autoComplete="username" />
-              <label className="field"><span className="field-label">Password for {earthUser}</span>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required autoFocus /></label>
-              <button className="btn btn-primary" disabled={!!busy}>{busy === earthUser ? "Signing in…" : "Sign in"}</button>
-            </form>
-          )}
-          <p className="muted small">Earth-side accounts manage users and missions and still require a password.
-            {cfg.show_demo_password ? <> Demo password: <code>astra-demo</code></> : <> Use the password provided by the ASTRA team.</>}</p>
-        </section>
+        )}
+        <form onSubmit={signIn} className="stack" aria-labelledby="signin-h">
+          <h2 id="signin-h" className="login-h"><LuLock aria-hidden /> Sign in</h2>
+          <label className="field"><span className="field-label">Username</span>
+            <input name="username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username"
+              autoCapitalize="none" spellCheck={false} required autoFocus /></label>
+          <label className="field"><span className="field-label">Password</span>
+            <input name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password" required /></label>
+          <button className="btn btn-primary" disabled={busy || !username || !password}>{busy ? "Signing in…" : "Sign in"}</button>
+          <ErrorBox error={err} />
+          {unreachable && <div className="note warn" role="status">The ASTRA server cannot be reached. This page was opened from the browser's
+            offline cache; sign-in and all health data need a connection to the server (on the spacecraft: the onboard server on the local network).</div>}
+        </form>
 
-        <ErrorBox error={err} />
+        {cfg.show_demo_password && (
+          <section className="stack demo-accounts" aria-labelledby="demo-h">
+            <h2 id="demo-h" className="login-h small">Demonstration accounts</h2>
+            <div className="btn-row">
+              {DEMO_ACCOUNTS.filter(([, , side]) => !cfg.deployment || cfg.deployment === "standalone" || (cfg.deployment === "onboard") === (side === "crew")).map(([u, label, side]) => (
+                <button key={u} type="button" data-username={u} className={`btn btn-quiet ${username === u ? "btn-primary" : ""}`}
+                  onClick={() => { setUsername(u); setErr(null); }}>
+                  {side === "crew" ? <LuRocket aria-hidden /> : <LuEarth aria-hidden />} {u} <small className="muted">· {label}</small>
+                </button>
+              ))}
+            </div>
+            <p className="muted small">Demo passwords are listed in the project README. They are shared demonstration passwords and must be changed before any real deployment.</p>
+          </section>
+        )}
+
         <p className="fineprint">Decision-support prototype for the NASA Space Apps Challenge 2026. Not an autonomous doctor and not a diagnostic device. All crew identities and data shown are fictional and synthetic.</p>
       </div>
     </div>

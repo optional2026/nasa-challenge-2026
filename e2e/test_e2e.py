@@ -18,8 +18,19 @@ SHOTS = Path(__file__).resolve().parents[1] / "docs" / "screenshots"
 SHOTS.mkdir(parents=True, exist_ok=True)
 
 
+CREW_USERS = ("vega", "okafor", "mori")
+
+
+def password(user):
+    """Demo passwords (see README): shared crew demo password for the three pre-created crew accounts,
+    Earth demo password for admin/ramirez. Override with the same environment variables as the server."""
+    if user in CREW_USERS:
+        return os.environ.get("ASTRA_CREW_DEMO_PASSWORD", "optionalwillwin")
+    return os.environ.get("ASTRA_DEMO_PASSWORD", "astra-demo")
+
+
 def token(user):
-    return requests.post(B + "/api/v1/auth/login", json={"username": user, "password": "astra-demo"}, timeout=30).json()["token"]
+    return requests.post(B + "/api/v1/auth/login", json={"username": user, "password": password(user)}, timeout=30).json()["token"]
 
 
 def api(user, method, path, body=None):
@@ -44,13 +55,10 @@ def login(browser, user, width=1440):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(B + "/")
-    page.wait_for_selector(".profile-card, .earth-account", timeout=15000)
-    if page.locator(f".profile-card[data-username='{user}']").count():
-        page.click(f".profile-card[data-username='{user}']")  # crew: profile selection, no password
-    else:
-        page.click(f".earth-account[data-username='{user}']")  # Earth-side accounts: password
-        page.fill("input[type=password]", "astra-demo")
-        page.click(".inline-signin button.btn-primary")
+    page.wait_for_selector("input[name=username]", timeout=15000)
+    page.fill("input[name=username]", user)  # every role signs in with username + password
+    page.fill("input[name=password]", password(user))
+    page.click(".login-card form button.btn-primary")
     page.wait_for_selector(".rail nav", timeout=15000)
     page.errors = errors
     return page
@@ -68,9 +76,9 @@ def run_scenario(name, days=10, speed=96):
 def test_login_rejects_bad_password(browser):
     page = browser.new_page()
     page.goto(B + "/")
-    page.click(".earth-account[data-username='admin']")
-    page.fill("input[type=password]", "nope")
-    page.click(".inline-signin button.btn-primary")
+    page.fill("input[name=username]", "vega")
+    page.fill("input[name=password]", "nope-wrong")
+    page.click(".login-card form button.btn-primary")
     page.wait_for_selector(".error-box")
     assert "invalid username or password" in page.inner_text(".error-box")
     page.screenshot(path=str(SHOTS / "01_login.png"))
@@ -203,12 +211,37 @@ def test_environment_radiation_and_library(browser):
     page.close()
 
 
-def test_admin_has_no_health_pages_and_ops(browser):
+PERSONAL_TABS = ("My dashboard", "Astronaut dashboard", "Health records", "Health analytics", "Daily routine")
+
+
+def test_admin_has_no_personal_health_pages(browser):
     page = login(browser, "admin")
-    page.wait_for_selector(".sim-panel", timeout=10000)
     nav = page.inner_text(".rail nav")
-    assert "Mission overview" not in nav and "Mission operations" in nav
+    for tab in PERSONAL_TABS:
+        assert tab not in nav, tab
+    for tab in ("Mission overview", "Crew overview", "Astronaut records", "Alerts & medical events", "Users & crew assignment"):
+        assert tab in nav, tab
+    # individual astronaut records reuse the astronaut components (read-only for the administrator)
+    page.goto(B + "/#/analytics")
+    page.wait_for_selector(".record-picker", timeout=10000)
+    page.click(".record-picker button:has-text('Amara Okafor')")
+    page.wait_for_selector("text=Read-only · administrator")
+    page.goto(B + "/#/ops")
+    page.wait_for_selector(".sim-panel", timeout=10000)
     page.screenshot(path=str(SHOTS / "09_mission_operations.png"), full_page=False)
+    page.close()
+
+
+def test_flight_surgeon_medical_oversight_navigation(browser):
+    page = login(browser, "ramirez")
+    nav = page.inner_text(".rail nav")
+    for tab in PERSONAL_TABS:
+        assert tab not in nav, tab
+    for tab in ("Mission overview", "Crew overview", "Astronaut medical records", "Medical response & reports"):
+        assert tab in nav, tab
+    assert "Users & crew assignment" not in nav
+    page.goto(B + "/#/records")
+    page.wait_for_selector(".record-picker")
     page.close()
 
 

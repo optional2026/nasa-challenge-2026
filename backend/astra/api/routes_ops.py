@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from .. import audit, db, schemas
+from ..security import can_view_astronaut
 from ..services import environment, knowledge, sync, trends
 from .common import default_mission, map_errors, mission_day, scoped_astronaut
 from .framework import Api, ApiError, Ctx, not_found
@@ -171,6 +172,8 @@ def register(api: Api) -> None:
             target = b.astronaut_id or "AST-001"
             if not db.one(ctx.conn, "SELECT id FROM astronauts WHERE id=?", (target,)):
                 raise not_found("astronaut", target)
+            if not can_view_astronaut(p, target):
+                raise ApiError(403, "forbidden", "this astronaut is not on your assigned mission")
             crew_ids = None if b.whole_crew else {target}
         res = _sim(lambda: RUNNER.start(b.scenario, b.speed, b.days, b.seed, target, crew_ids=crew_ids,
                                         started_by=p.actor))
@@ -212,6 +215,8 @@ def register(api: Api) -> None:
         if scope is None and ctx.query.astronaut_id:
             if not db.one(ctx.conn, "SELECT id FROM astronauts WHERE id=?", (ctx.query.astronaut_id,)):
                 raise not_found("astronaut", ctx.query.astronaut_id)
+            if not can_view_astronaut(ctx.principal, ctx.query.astronaut_id):
+                raise ApiError(403, "forbidden", "this astronaut is not on your assigned mission")
             scope = {ctx.query.astronaut_id}
         elif scope is not None and ctx.query.astronaut_id and {ctx.query.astronaut_id} != scope:
             raise ApiError(403, "forbidden", "you can only remove demo data from your own profile")
@@ -234,6 +239,10 @@ def register(api: Api) -> None:
 
     @api.route("POST", "/sync/run", summary="Run one synchronization pass now", tags=["sync"], roles=ALL_USERS)
     def sync_run(ctx: Ctx):
+        from .. import config
+        if config.deployment() == "onboard":
+            from ..services import replication
+            return {"result": replication.run_pass(ctx.conn), "status": sync.status(ctx.conn)}
         return {"result": sync.process(ctx.conn), "status": sync.status(ctx.conn)}
 
     @api.route("POST", "/sync/{queue_id}/retry", summary="Retry a failed or conflicted item", tags=["sync"], roles=ALL_USERS)

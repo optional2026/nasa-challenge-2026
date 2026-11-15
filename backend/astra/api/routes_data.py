@@ -2,8 +2,6 @@
 knowledge base, daily records."""
 from __future__ import annotations
 
-import secrets
-
 from .. import audit, db, schemas, security
 from ..devices.adapters import ADAPTERS, AdapterError, adapter_for
 from ..security import MEDICAL_ROLES, can_view_private
@@ -23,44 +21,21 @@ def register(api: Api) -> None:
     @api.route("POST", "/auth/login", summary="Log in and receive a session token", tags=["auth"], body=schemas.LoginIn,
                response=schemas.LoginOut, auth="none")
     def login(ctx: Ctx):
+        """Every role (astronaut, Crew Medical Officer, flight surgeon, administrator) signs in with a username and
+        password. The password is verified against its scrypt hash; the same error is returned for an unknown user,
+        a deactivated user and a wrong password. Role and permissions come from the server-side user record."""
         u = db.one(ctx.conn, "SELECT * FROM users WHERE username=? AND active=1", (ctx.body.username,))
         if not u or not security.verify_password(ctx.body.password, u["password_hash"]):
             with db.transaction(ctx.conn):
                 audit.record(ctx.conn, f"anonymous:{ctx.body.username}", "auth.login_failed", "user", ctx.body.username, {})
             raise ApiError(401, "invalid_credentials", "invalid username or password")
+        from .. import sides
+        if not sides.role_allowed(u["role"]):  # checked after the password, so it reveals nothing to strangers
+            with db.transaction(ctx.conn):
+                audit.record(ctx.conn, f"user:{u['username']}", "auth.login_wrong_side", "user", str(u["id"]), {})
+            raise ApiError(403, "wrong_side", sides.wrong_side_message(u["role"]))
         with db.transaction(ctx.conn):
             audit.record(ctx.conn, f"user:{u['username']}", "auth.login", "user", str(u["id"]), {})
-        return {"token": security.issue_token(u), "user": _user_public(u)}
-
-    @api.route("GET", "/auth/profiles", summary="Profiles shown on the sign-in screen", tags=["auth"], auth="none")
-    def profiles(ctx: Ctx):
-        """Active crew profiles (astronauts and the Crew Medical Officer) that can be selected without a password,
-        plus the Earth-side accounts that still sign in with a password. Contains no health data."""
-        crew = db.all_(ctx.conn, """SELECT u.id user_id, u.username, u.display_name, u.role, a.id astronaut_id, a.name,
-                                           a.call_sign, a.crew_role, a.crew, m.id mission_id, m.name mission_name
-                                    FROM users u JOIN astronauts a ON a.id=u.astronaut_id LEFT JOIN missions m ON m.id=a.mission_id
-                                    WHERE u.active=1 AND u.role IN ('astronaut','medical_officer')
-                                    ORDER BY CASE u.role WHEN 'medical_officer' THEN 1 ELSE 0 END, a.id""")
-        earth = db.all_(ctx.conn, "SELECT username, display_name, role FROM users WHERE active=1 AND role IN ('admin','flight_surgeon') "
-                                  "ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id")
-        return {"crew": crew, "earth": earth,
-                "notice": "Crew profile selection is a simplified simulation sign-in without credentials. It does not verify "
-                          "identity and is not suitable for an operational medical system."}
-
-    @api.route("POST", "/auth/select-profile", summary="Sign in by selecting a crew profile (simulation only, no password)",
-               tags=["auth"], body=schemas.ProfileSelectIn, response=schemas.LoginOut, auth="none")
-    def select_profile(ctx: Ctx):
-        """Only active astronaut and Crew Medical Officer accounts linked to an astronaut record can be selected.
-        Administrator and flight-surgeon accounts must use /auth/login with a password. Roles and permissions come
-        from the server-side user record, never from the client."""
-        u = db.one(ctx.conn, "SELECT * FROM users WHERE id=? AND active=1", (ctx.body.user_id,))
-        if not u or u["role"] not in security.PROFILE_SELECT_ROLES or not u["astronaut_id"]:
-            with db.transaction(ctx.conn):
-                audit.record(ctx.conn, f"anonymous:user-{ctx.body.user_id}", "auth.profile_select_denied", "user", str(ctx.body.user_id), {})
-            raise ApiError(403, "profile_selection_not_allowed", "this profile cannot be selected; Earth-side accounts sign in with a password")
-        with db.transaction(ctx.conn):
-            audit.record(ctx.conn, f"user:{u['username']}", "auth.profile_select", "user", str(u["id"]),
-                         {"note": "simulation sign-in without credentials"})
         return {"token": security.issue_token(u), "user": _user_public(u)}
 
     @api.route("GET", "/auth/me", summary="Current user", tags=["auth"])
@@ -72,7 +47,7 @@ def register(api: Api) -> None:
     @api.route("GET", "/users", summary="List registered users (administrator)", tags=["users"], roles=("admin",))
     def users(ctx: Ctx):
         return [_user_admin(u) for u in db.all_(ctx.conn, """SELECT u.*, a.name astronaut_name, a.call_sign, a.crew_role, a.crew,
-                                                                     a.mission_id, m.name mission_name
+                                                                     a.mission_id, u.mission_id user_mission_id, m.name mission_name
                                                               FROM users u LEFT JOIN astronauts a ON a.id=u.astronaut_id
                                                               LEFT JOIN missions m ON m.id=a.mission_id ORDER BY u.id""")]
 
@@ -80,9 +55,11 @@ def register(api: Api) -> None:
                roles=("admin",), status_code=201)
     def user_create(ctx: Ctx):
         """Creates the astronaut health record (with the standard daily-routine schedule) and the linked account.
-        Only astronaut and Crew Medical Officer accounts can be registered; nobody can self-register."""
+        Only astronaut and Crew Medical Officer accounts can be registered; nobody can self-register. A password
+        that satisfies the server password policy is required."""
         from ..seed import SCHEDULE
         b = ctx.body
+        _check_password(b.password, b.username)
         if db.one(ctx.conn, "SELECT id FROM users WHERE username=?", (b.username,)):
             raise ApiError(409, "username_taken", f"username '{b.username}' is already registered")
         mission_id = b.mission_id or default_mission(ctx.conn)["id"]
@@ -99,9 +76,9 @@ def register(api: Api) -> None:
                 db.insert(ctx.conn, "assessment_schedule", {"astronaut_id": ast_id, "task_code": code, "title": title,
                                                             "metric_codes": db.dumps(metrics), "interval_hours": interval,
                                                             "required": required, "clinician_directed": clin, "active": 1})
-            # Crew accounts sign in by profile selection; the stored password hash is random and never disclosed.
+            # The administrator-chosen initial password is stored only as a salted scrypt hash and never returned.
             db.insert(ctx.conn, "users", {"username": b.username, "display_name": b.display_name,
-                                          "password_hash": security.hash_password(secrets.token_urlsafe(32)),
+                                          "password_hash": security.hash_password(b.password),
                                           "role": b.role, "astronaut_id": ast_id, "active": 1, "created_at": now})
             uid = db.one(ctx.conn, "SELECT id FROM users WHERE username=?", (b.username,))["id"]
             audit.record(ctx.conn, ctx.principal, "user.create", "user", str(uid),
@@ -114,8 +91,18 @@ def register(api: Api) -> None:
         u = _user_row(ctx)
         b = ctx.body.model_dump(exclude_unset=True)
         if u["role"] not in security.ADMIN_ASSIGNABLE_ROLES:
-            if set(b) - {"display_name"}:
-                raise forbidden("only the display name of Earth-side accounts can be edited here")
+            allowed = {"display_name", "mission_id"} if u["role"] == "flight_surgeon" else {"display_name"}
+            if set(b) - allowed:
+                raise forbidden("only the display name (and, for a flight surgeon, the assigned mission) of Earth-side "
+                                "accounts can be edited here")
+            if "mission_id" in b and b["mission_id"] is not None and not db.one(ctx.conn, "SELECT id FROM missions WHERE id=?", (b["mission_id"],)):
+                raise not_found("mission", b["mission_id"])
+            with db.transaction(ctx.conn):
+                changes = {k: b[k] for k in b if k == "mission_id" or b[k] is not None}
+                if changes:
+                    db.update(ctx.conn, "users", "id", u["id"], changes)
+                audit.record(ctx.conn, ctx.principal, "user.update", "user", str(u["id"]), {"changes": b, "previous_role": u["role"]})
+            return _user_admin_by_id(ctx.conn, u["id"])
         astro_changes = {k: b[k] for k in ("name", "call_sign", "crew_role", "mission_id", "crew") if k in b}
         if "mission_id" in astro_changes and not db.one(ctx.conn, "SELECT id FROM missions WHERE id=?", (astro_changes["mission_id"],)):
             raise not_found("mission", astro_changes["mission_id"])
@@ -149,6 +136,20 @@ def register(api: Api) -> None:
         with db.transaction(ctx.conn):
             ctx.conn.execute("UPDATE users SET active=1 WHERE id=?", (u["id"],))
             audit.record(ctx.conn, ctx.principal, "user.activate", "user", str(u["id"]), {"username": u["username"]})
+        return _user_admin_by_id(ctx.conn, u["id"])
+
+    @api.route("POST", "/users/{user_id}/password", summary="Set a new password for a crew account (administrator)",
+               tags=["users"], body=schemas.PasswordResetIn, roles=("admin",))
+    def user_password_reset(ctx: Ctx):
+        """Replaces the password hash of an astronaut or Crew Medical Officer account. Existing passwords can never
+        be read or retrieved — only replaced. Earth-side demo accounts are managed by server configuration."""
+        u = _user_row(ctx)
+        if u["role"] not in security.ADMIN_ASSIGNABLE_ROLES:
+            raise forbidden("passwords of Earth-side accounts are managed by server configuration, not through user management")
+        _check_password(ctx.body.password, u["username"])
+        with db.transaction(ctx.conn):
+            ctx.conn.execute("UPDATE users SET password_hash=? WHERE id=?", (security.hash_password(ctx.body.password), u["id"]))
+            audit.record(ctx.conn, ctx.principal, "user.password_reset", "user", str(u["id"]), {"username": u["username"]})
         return _user_admin_by_id(ctx.conn, u["id"])
 
     def _user_row(ctx: Ctx) -> dict:
@@ -295,7 +296,7 @@ def register(api: Api) -> None:
             ctx_obj = dict(b.context, panel_id=panel)
             if b.method:
                 ctx_obj["method"] = b.method
-            oid = (f"OBS-M-{db.sha256([ast, b.client_submission_id, it.metric_code])[:12].upper()}"
+            oid = (f"OBS-M-{db.sha256([ast, b.client_submission_id, it.metric_code])[:20].upper()}"
                    if b.client_submission_id else None)
             items.append({"observation_id": oid, "astronaut_id": ast, "mission_id": a["mission_id"],
                           "metric_code": it.metric_code, "value": it.value, "unit": it.unit, "measured_at": b.measured_at,
@@ -371,6 +372,8 @@ def register(api: Api) -> None:
         if o["device_id"]:
             d = db.one(ctx.conn, "SELECT id, device_type, model, is_simulated, hardware_validated FROM devices WHERE id=?", (o["device_id"],))
             o["device"] = d
+        from ..services import replication
+        o["replication"] = replication.record_sync_info(ctx.conn, "observation", o["id"])
         return o
 
     # ---------------------------------------------------------------- knowledge
@@ -503,7 +506,8 @@ def _user_admin(u: dict) -> dict:
     """User row for the administrator's user list (account and assignment only — no health data)."""
     return _user_public(u) | {
         "active": bool(u["active"]), "created_at": u["created_at"],
-        "sign_in": "profile" if u["role"] in security.PROFILE_SELECT_ROLES else "password",
+        "sign_in": "password",
+        "assigned_mission_id": u.get("user_mission_id") if u["role"] in security.EARTH_ROLES else None,
         "editable_role": u["role"] in security.ADMIN_ASSIGNABLE_ROLES,
         "astronaut": {"id": u["astronaut_id"], "name": u.get("astronaut_name"), "call_sign": u.get("call_sign"),
                       "crew_role": u.get("crew_role"), "crew": u.get("crew"), "mission_id": u.get("mission_id"),
@@ -511,8 +515,14 @@ def _user_admin(u: dict) -> dict:
     }
 
 
+def _check_password(password: str, username: str) -> None:
+    probs = security.password_problems(password, username)
+    if probs:
+        raise ApiError(422, "weak_password", "; ".join(probs), {"password": probs})
+
+
 def _user_admin_by_id(conn, uid: int) -> dict:
-    return _user_admin(db.one(conn, """SELECT u.*, a.name astronaut_name, a.call_sign, a.crew_role, a.crew, a.mission_id,
+    return _user_admin(db.one(conn, """SELECT u.*, a.name astronaut_name, a.call_sign, a.crew_role, a.crew, a.mission_id, u.mission_id user_mission_id,
                                               m.name mission_name FROM users u LEFT JOIN astronauts a ON a.id=u.astronaut_id
                                        LEFT JOIN missions m ON m.id=a.mission_id WHERE u.id=?""", (uid,)))
 

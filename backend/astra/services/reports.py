@@ -111,7 +111,12 @@ def get(conn, report_id: str) -> dict | None:
         r["content"] = db.loads(r["content"])
         r["is_private"] = bool(r["is_private"])
         r["is_synthetic"] = bool(r["is_synthetic"])
-        q = db.one(conn, "SELECT status, attempts, delivered_at, acknowledged_at, acknowledged_by, last_error FROM sync_queue "
-                         "WHERE item_type='medical_report' AND item_id=? ORDER BY created_at DESC LIMIT 1", (report_id,))
-        r["transmission"] = q
+        from .. import config
+        if config.deployment() != "standalone":
+            from . import replication
+            r["transmission"] = replication.record_sync_info(conn, "medical_report", report_id)
+        else:
+            r["transmission"] = db.one(conn, "SELECT status, attempts, delivered_at, acknowledged_at, acknowledged_by, last_error "
+                                             "FROM sync_queue WHERE item_type='medical_report' AND item_id=? "
+                                             "ORDER BY created_at DESC LIMIT 1", (report_id,))
     return r

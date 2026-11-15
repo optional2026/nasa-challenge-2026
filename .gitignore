@@ -8,6 +8,7 @@ test-results/
 
 # public demo runtime state
 tools/.public_demo/
+tools/.public_crew_earth/
 tools/bin/
 backend/data-public/
 backend/.venv/

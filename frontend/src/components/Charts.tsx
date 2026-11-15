@@ -47,7 +47,9 @@ function timeTicks(t0: number, t1: number, width: number): { t: number; label: s
   return out;
 }
 
-const PALETTE = ["#9DB4FF", "#5FD3C2", "#E7A6FF", "#F2C94C", "#FF9E80"];
+// Theme-aware series colours (CSS variables defined per light/dark theme in styles.css). Applied via `style`,
+// because SVG presentation attributes do not resolve var().
+const PALETTE = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)"];
 
 export function TimeSeriesChart({ series, bands = [], refLines = [], markers = [], unit = "", height = 240, onPointClick,
   domain, xDomain, emptyText = "No measurements in this period", rightUnit }: {
@@ -143,11 +145,11 @@ export function TimeSeriesChart({ series, bands = [], refLines = [], markers = [
         ))}
         {series.map((s, si) => (
           <g key={s.name}>
-            <path d={path(s)} fill="none" stroke={s.color || PALETTE[si % PALETTE.length]} strokeWidth={1.8}
+            <path d={path(s)} fill="none" style={{ stroke: s.color || PALETTE[si % PALETTE.length] }} strokeWidth={1.8}
               strokeDasharray={s.dashed ? "5 4" : undefined} />
             {s.points.length <= 400 && s.points.map((p, i) => p.v === null || p.v === undefined ? null : (
               <circle key={p.id || i} cx={x(p.t)} cy={(s.axis === "right" ? yr : y)(p.v)} r={p.quality && p.quality !== "valid" ? 4 : 2.6}
-                className={`pt ${p.quality && p.quality !== "valid" ? "pt-q" : ""}`} fill={s.color || PALETTE[si % PALETTE.length]}
+                className={`pt ${p.quality && p.quality !== "valid" ? "pt-q" : ""}`} style={{ fill: s.color || PALETTE[si % PALETTE.length] }}
                 onMouseEnter={() => setHover({ x: x(p.t), y: (s.axis === "right" ? yr : y)(p.v as number), p, s })}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => onPointClick && onPointClick(p, s)}

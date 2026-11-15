@@ -16,8 +16,8 @@
 
 ## Quick facts
 * Project root: this folder. Backend `backend/`, frontend `frontend/` (prebuilt `frontend/dist/`), tests `backend/tests/` + `e2e/`.
-* Demo logins: crew profiles vega, okafor (astronauts), mori (CMO) — select profile, no password (simulation only);
-  Earth-side admin and ramirez (flight surgeon) — password `astra-demo`.
+* Demo logins (password for EVERY role): vega, okafor (astronauts), mori (CMO) — shared crew demo password
+  `optionalwillwin`; admin and ramirez (flight surgeon) — `astra-demo`. Shared demo passwords: change before real use.
 * 2026-11-15 (roles & login update):
   - Profile-selection sign-in for crew (`/auth/profiles`, `/auth/select-profile`); Earth-side accounts keep passwords.
   - Admin user management (`/users`, PATCH `/users/{id}`, `/deactivate`, `/activate`); crew assignment column
@@ -32,3 +32,36 @@
   - Tests: backend 64 passed (new: `test_roles_users.py`, `test_demo_isolation.py`); `tsc` 0 errors; `vite build` OK
     (`frontend/dist` rebuilt). E2E (Playwright) helper updated but not run.
 * All stage reports: `checkpoint/history/STAGE_00.md` … `STAGE_10.md`. Status table: `docs/DEVELOPMENT_STATUS.md`.
+* 2026-11-15 (role separation & password authentication):
+  - Profile selection removed (`/auth/profiles`, `/auth/select-profile` deleted); all roles use `/auth/login`.
+  - Crew demo password from `config.crew_demo_password()` (env `ASTRA_CREW_DEMO_PASSWORD`); one-time migration
+    `seed.apply_demo_password` (schema_meta key `crew_password_auth_v1`) updates vega/okafor/mori in place.
+  - New column `users.mission_id` (Earth accounts; `db._migrate`). Flight surgeon limited to the assigned mission
+    (`Principal.scope_astronaut_ids`); admin unrestricted unless assigned. FS writes (ingestion/records/simulator) scoped too.
+  - `POST /users` requires `password` (policy in `security.password_problems`); new `POST /users/{id}/password`
+    (admin reset, crew accounts only); PATCH can set a flight surgeon's `mission_id`.
+  - Frontend: password Login; Earth roles get Mission overview + Astronaut records (reuses Overview/BodySystems/
+    Analytics/Routine) instead of personal tabs; Users page has password, reset, FS mission.
+  - Tests: backend 75 passed (new `tests/test_role_separation.py`); tsc 0 errors; vite build OK. E2E updated, not run
+    (Playwright not installed).
+* 2026-11-15 (Crew Side / Earth Side + offline synchronization):
+  - `ASTRA_DEPLOYMENT=onboard|earth|standalone` (default standalone = previous behaviour). `astra/sides.py`: login and
+    route policy per side (crew roles onboard, Earth roles on Earth; Earth refuses health-record writes).
+  - `services/replication.py`: SQLite triggers -> `replication_outbox` (PENDING/SENDING/SYNCED/FAILED/REJECTED/DISCARDED),
+    `SyncWorker` thread, HMAC-signed `POST /api/v1/replication/batch` + `GET /replication/downlink`, Earth validation,
+    idempotent storage (`replicated_records`), immutable vs revisioned records, ground annotations (Earth -> CMO).
+  - CMO demo control `POST /link/simulation/outage|restore` (requires ASTRA_ALLOW_LINK_SIMULATION=1; persistent; audited).
+  - New tables: replication_outbox, replication_state, replicated_records, replication_batches, ground_annotations.
+    `db.new_id` now 80-bit ids.
+  - `run.py --side onboard|earth`, `start-astra-crew-earth.bat/.sh`, docs/CREW_EARTH_SYNC.md.
+  - Frontend: side-aware login/header, `components/EarthLink.tsx` (CMO panel, unsynced list, Earth freshness, ground
+    notes), PWA (public/sw.js shell cache, manifest).
+  - Tests: new `tests/test_crew_earth_sync.py` (15, two real server processes). See final report for full-suite result.
+  - Final: backend 91 tests (90 full-suite pass + new large-batch test pass); tsc 0 errors; vite build OK.
+* 2026-11-15 (visual redesign + public two-side demo):
+  - Light blue / white / charcoal / purple design with Light, Dark and System themes (`src/lib/theme.ts`,
+    `components/ThemeSwitch.tsx`, `public/theme-init.js` applies the theme before first paint). All colours are tokens
+    in `styles.css`; chart series use `--series-*`. Backup of the old styling: `backups/pre-color-redesign/`.
+  - `start-public-astra.bat` / `stop-public-astra.bat` -> `tools/start_public_crew_earth.ps1`: both sides behind two
+    Cloudflare Quick Tunnels (ports 8020/8120, backend/data-public/*). `-NoTunnel` for a local dry run.
+  - Fix: the signed replication endpoint is exempt from the 512 KB user body limit (own 20 MB limit).

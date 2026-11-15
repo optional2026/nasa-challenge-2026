@@ -1,4 +1,4 @@
-"""Profile-selection sign-in, administrator user management and the three-role permission model
+"""Password sign-in, administrator user management and the three-role permission model
 (astronaut, Crew Medical Officer, Earth-based administrator). All enforcement is server-side."""
 from datetime import timedelta
 
@@ -11,13 +11,15 @@ def t(m):
     return db.iso(db.utcnow() - timedelta(minutes=m))
 
 
-def _select(client, user_id):
-    return client.post(f"{API}/auth/select-profile", json={"user_id": user_id})
+NEW_PW = "Relief-crew-2026"
 
 
-def _profile_id(client, username):
-    crew = client.get(f"{API}/auth/profiles").json()["crew"]
-    return next(p["user_id"] for p in crew if p["username"] == username)
+def _login(client, username, password):
+    return client.post(f"{API}/auth/login", json={"username": username, "password": password})
+
+
+def _user_id(client, auth, username):
+    return next(u["id"] for u in client.get(f"{API}/users", headers=auth("admin")).json() if u["username"] == username)
 
 
 def _bearer(r):
@@ -25,43 +27,13 @@ def _bearer(r):
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
-# ---------------------------------------------------------------- sign-in
-def test_profiles_list_crew_and_earth_accounts(client):
-    r = client.get(f"{API}/auth/profiles")
-    assert r.status_code == 200
-    body = r.json()
-    crew = {p["username"]: p for p in body["crew"]}
-    assert {"vega", "okafor", "mori"} <= set(crew)
-    assert crew["mori"]["role"] == "medical_officer" and crew["vega"]["role"] == "astronaut"
-    assert crew["vega"]["mission_name"] and crew["vega"]["crew"]
-    assert {e["username"] for e in body["earth"]} >= {"admin"}
-    assert "not suitable" in body["notice"]
-    assert "password_hash" not in str(body)
-
-
-def test_select_profile_without_password(client):
-    h = _bearer(_select(client, _profile_id(client, "vega")))
-    me = client.get(f"{API}/auth/me", headers=h).json()
-    assert me["username"] == "vega" and me["role"] == "astronaut"
-
-
-def test_earth_accounts_cannot_be_selected_without_password(client, auth):
-    users = client.get(f"{API}/users", headers=auth("admin")).json()
-    for u in users:
-        if u["role"] in ("admin", "flight_surgeon"):
-            assert _select(client, u["id"]).status_code == 403
-    assert _select(client, 999999).status_code == 403
-    # role comes from the server, never from the client
-    assert client.post(f"{API}/auth/select-profile", json={"user_id": 1, "role": "admin"}).status_code == 422
-
-
 # ---------------------------------------------------------------- user management
 def test_only_admin_manages_users(client, auth):
-    body = {"username": "intruder", "display_name": "X", "role": "astronaut", "name": "X"}
+    body = {"username": "intruder", "display_name": "X", "role": "astronaut", "name": "X", "password": NEW_PW}
     for u in ("vega", "mori", "ramirez"):
         assert client.post(f"{API}/users", headers=auth(u), json=body).status_code == 403
         assert client.get(f"{API}/users", headers=auth(u)).status_code == 403
-    vega_id = _profile_id(client, "vega")
+    vega_id = _user_id(client, auth, "vega")
     assert client.patch(f"{API}/users/{vega_id}", headers=auth("vega"), json={"role": "medical_officer"}).status_code == 403
     assert client.post(f"{API}/users", json=body).status_code == 401  # no self-registration
     # administrators cannot be created or assigned through user management
@@ -73,15 +45,15 @@ def test_admin_registers_edits_and_deactivates(client, auth):
     a = auth("admin")
     r = client.post(f"{API}/users", headers=a, json={
         "username": "lindqvist", "display_name": "Sofia Lindqvist", "role": "astronaut", "name": "Sofia Lindqvist",
-        "call_sign": "LIND", "crew_role": "Mission Specialist", "crew": "Relief Crew"})
+        "call_sign": "LIND", "crew_role": "Mission Specialist", "crew": "Relief Crew", "password": NEW_PW})
     assert r.status_code == 201, r.text
     u = r.json()
-    assert u["active"] and u["sign_in"] == "profile" and u["astronaut"]["crew"] == "Relief Crew"
+    assert u["active"] and u["sign_in"] == "password" and u["astronaut"]["crew"] == "Relief Crew"
     ast = u["astronaut"]["id"]
     assert client.post(f"{API}/users", headers=a, json={"username": "lindqvist", "display_name": "dup", "role": "astronaut",
-                                                         "name": "dup"}).status_code == 409
-    # new astronaut signs in by profile selection and sees only their own data
-    h = _bearer(_select(client, u["id"]))
+                                                         "name": "dup", "password": NEW_PW}).status_code == 409
+    # new astronaut signs in with the password the administrator set and sees only their own data
+    h = _bearer(_login(client, "lindqvist", NEW_PW))
     assert client.get(f"{API}/overview", headers=h).status_code == 200
     assert client.get(f"{API}/routine", headers=h).json()["tasks"]  # standard schedule created
     assert client.get(f"{API}/overview?astronaut_id=AST-001", headers=h).status_code == 403
@@ -103,12 +75,11 @@ def test_admin_registers_edits_and_deactivates(client, auth):
     assert client.patch(f"{API}/users/{u['id']}", headers=a, json={"role": "medical_officer"}).status_code == 200
     assert client.get(f"{API}/auth/me", headers=h).status_code == 401
     assert client.patch(f"{API}/users/{u['id']}", headers=a, json={"role": "astronaut"}).status_code == 200
-    h = _bearer(_select(client, u["id"]))
-    # deactivation signs the account out everywhere and removes it from the sign-in screen
+    h = _bearer(_login(client, "lindqvist", NEW_PW))
+    # deactivation signs the account out everywhere and blocks password sign-in
     assert client.post(f"{API}/users/{u['id']}/deactivate", headers=a).json()["active"] is False
     assert client.get(f"{API}/auth/me", headers=h).status_code == 401
-    assert _select(client, u["id"]).status_code == 403
-    assert "lindqvist" not in {p["username"] for p in client.get(f"{API}/auth/profiles").json()["crew"]}
+    assert _login(client, "lindqvist", NEW_PW).status_code == 401
     listed = {x["username"]: x for x in client.get(f"{API}/users", headers=a).json()}
     assert listed["lindqvist"]["active"] is False
     me_id = client.get(f"{API}/auth/me", headers=a).json()["id"]
